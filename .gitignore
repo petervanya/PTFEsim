@@ -1,0 +1,11 @@
+*.pyc
+*~
+*.txt
+*.png
+*.so
+*.out
+*.log
+*.data
+*.in
+*.lammps
+*.yaml
