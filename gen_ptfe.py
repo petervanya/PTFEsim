@@ -1,10 +1,17 @@
 #!/usr/bin/env python
 """Usage:
-    gen_ptfe.py <input> [--save <fname>]
+    gen_ptfe.py <input> [--save <fname>] [--parsetopo]
+
+Arguments:
+    <input>                  Input yaml file
+
+Options:
+    --save <fname>           Save the data file
+    --parsetopo              Use if parameters should be obtained from topo string
 
 * 5 beads in a monomer
 * 15 monomers in a chain
-* number of chains to fit the density from papers (dry or wet)
+* number of chains to fit the density from the papers (dry or wet)
 * finally, add water beads
 
 pv278@cam.ac.uk, 09/11/15
@@ -12,8 +19,14 @@ pv278@cam.ac.uk, 09/11/15
 import numpy as np
 import os, sys, yaml
 from docopt import docopt
-from parse_topo import *
+import parse_topo as pt
 
+kB = 1.38e-23
+Maw = 1.67e-27
+d_DPD = 8.14e-10             # DPD distance unit
+elem_wts = {"C": 12, "F": 19, "O": 16, "H": 1, "S": 32}
+rho_dry = 1950               # kg/m^3
+rho_wet = 1680
 
 def nafion_bead_wt(bead, arg="dry"):
     """Return weigths in atomic units of beads A, B, C or W"""
@@ -107,8 +120,39 @@ def bonds_mat(Na, Nm, Nbm=5):
     return bonds
 
 
+def gen_pair_bond_coeffs(atom_types="ABCW", atoms_yaml, bonds_yaml, gamma, rc, r0):
+    """
+    Generate atomic params a_ij and bond coeffs k_ij for
+    all possible combinations give number of atom types
+    Read the custom bonds from the input.yaml file
+    TEST THIS
+    """
+    a_ij = {}
+    k_ij = {}
+    Nat = len(atom_types)
+    num2coeff = dict((num, coeff) for (num, coeff) in zip(range(1, Nat+1), atom_types))
+    for i in range(1, Nat+1):
+        for j in range(i+1):
+            key = "%i %i"%(i, j)
+            if num2coeff[key] in atoms_yaml.keys():
+                a_ij[key] = [atoms[num2coeff[key]], gamma, rc]
+            else:
+                a_ij[key] = [25 * kB*T/rc, gamma, rc]
+               
+    for i in range(1, Nat+1):
+        for j in range(i+1):
+            key = atom_types[i] + " " + atom_types[j]
+            if key in bonds_yaml.keys():
+                k_ij[map[key]] = [bonds_yaml[key], r0]
+            else:
+                k_ij[map[key]] = [4 * kB*T/(rc**2), r0]
+
+    return a_ij, k_ij
+
+
 def get_electrodes():
     pass
+
 
 # =====
 # ===== printing to str
@@ -135,10 +179,10 @@ def mass2str(masses):
     return s + "\n"
 
 
-def paircoeffs2str(coeffs, gamma, cutoff):   # part1 part2 force gamma cutoff
+def paircoeffs2str(coeffs):   # part1 part2 force gamma cutoff
     s = "PairIJ Coeffs\n\n"
     for k, v in coeffs.iteritems():
-        s += "%s %s %s %s\n" % (str(k), str(v), str(gamma), str(cutoff))
+        s += "%s %s %s %s\n" % (str(k), str(v[0]), str(v[1]), str(v[2]))
     return s + "\n"
 
 
@@ -181,47 +225,47 @@ if __name__ == "__main__":
         print "File does not exist:", args["<input>"]
     
     # ===== general parameters
-    elem_wts = {"C": 12, "F": 19, "O": 16, "H": 1, "S": 32}
-    kB = 1.38e-23
-    Maw = 1.67e-27
-    d_DPD = 8.14e-10        # DPD distance unit
     T = data["temperature"]
     L = data["box-size"]*d_DPD
-    rho_dry = 1950          # kg/m^3
-    rho_wet = 1680
+    atom_types = "ABCW"
+    Nat = len(atom_types)    # num atom types
+    Nbt = 3                  # num bond types
     masses = dict( (i, nafion_bead_wt(i)*Maw) for i in range(1, 5) )  # SI units
-    gamma = 1.0 * d_DPD**3  # in SI units, CHECK
-    rc = d_DPD              # cutoff distance
+    gamma = 1.0 * d_DPD**3   # in SI units, CHECK
+    rc = d_DPD               # cutoff distance
+
+    # ===== polymer parameters, MAKE THIS PARSE TOPOLOGY
+    Ns = int(round(num_poly_chains(rho_wet, L**3, Nm, arg="wet")))
+    if args["--parsetopo"]:
+        raw_topo = data["topology"]
+        bead_list, Nm = pt.bead_parser(raw_topo)
+        Nbm = len(bead_list)
+        Nbs = Nbm*Nm
+    else:
+        Nm = 15                 # num monomers in one polymer chain
+        Nbm = 5                 # num beads per monomer
+        Nbs = Nbm*Nm            # num beads per chain
+    Nb = Nbs*Ns                 # tot num beads
+    mean_bead_dist = L/Nb**(1./3)
+    mu = mean_bead_dist
+    sigma = mean_bead_dist/10   # 10 is arbitrary
+    print Ns, "polymer chains in a given volume"
 
     # ===== pair and bond parameters
-    atomtypes = 4
-    bondtypes = 3
-    coeff2num = dict((coeff, num) for (coeff, num) in zip("ABCW", range(1, 5)))
+    # NEW AUTOMATISED VERSION: gen_pair_bond_coeffs
+    coeff2num = dict((coeff, num) for (coeff, num) in zip(atom_types, range(1, Nat+1)))
     a_ij = {}
     for k, v in data["int-params"].iteritems():
         a_ij[" ".join([str(coeff2num[i]) for i in k.split()])] \
-            = v * kB*T/rc
-    for i in range(1, 5):
-        a_ij["%i %i" % (i, i)] = 25 * kB*T/rc
+            = [v * kB*T/rc, gamma, rc]
+    for i in range(1, Nat+1):   # same bonds
+        a_ij["%i %i" % (i, i)] = [25 * kB*T/rc, gamma, rc]
 
     k_ij = {}
     r0 = 0.0
     for k, v in data["spring-const"].iteritems():
         k_ij[" ".join([str(coeff2num[i]) for i in k.split()])] \
             = ["%e" % (v * kB*T/rc**2), r0]
-#    for i in range(1, bondtypes+1):
-#        k_ij[i] = [1.0 * kB*T/rc**2, 0.0]   # spring const, eq. dist
-
-    # ===== polymer parameters
-    Nm = 15                 # num of monomers in one polymer chain
-    Ns = int(round(num_poly_chains(rho_wet, L**3, Nm, arg="wet")))
-    Nbs = 5*Nm              # num beads per chain
-    Nbm = 5                 # num beads per monomer
-    Nb = Nbs*Ns             # tot num beads
-    mean_bead_dist = L/Nb**(1./3)
-    mu = mean_bead_dist
-    sigma = mean_bead_dist/10  # 10 is arbitrary
-    print Ns, "polymer chains in a given volume"
 
     # ===== atoms
     poly_xyz = get_polymer_atoms(Ns, Nm, L, mu, sigma)
@@ -237,11 +281,13 @@ if __name__ == "__main__":
     bonds = bonds_mat(Ns, Nm, Nbm)
     bonds_str = bonds2str(bonds)
     print len(bonds), "bonds created"
+    # ALTERNATIVE
+
 
     # ===== putting it together
-    final_string = header2str(len(xyz), len(bonds), atomtypes, bondtypes, L) + \
+    final_string = header2str(len(xyz), len(bonds), Nat, Nbt, L) + \
                    mass2str(masses) + \
-                   paircoeffs2str(a_ij, gamma, rc) + \
+                   paircoeffs2str(a_ij) + \
                    bondcoeffs2str(k_ij) + \
                    "Atoms\n\n" + xyz_str + \
                    "Bonds\n\n" + bonds_str
@@ -252,6 +298,5 @@ if __name__ == "__main__":
         print "Data file written in", fname
     else:
         print final_string
-
 
 
