@@ -16,6 +16,13 @@ import re
 from docopt import docopt
 
 
+def prelim_parsing(raw_topo):
+    """Create a number of monomers and topology out of the submitted string"""
+    topo_str, Nm = raw_topo.split(")")[0], int(raw_topo.split(")")[-1])
+    topo_str = topo_str.lstrip("(")
+    return topo_str, Nm
+
+
 def bead_parser(raw_topo):
     """From a string parse the beads and numbers in one monomer"""
     topo_str, Nm = prelim_parsing(raw_topo)
@@ -55,23 +62,39 @@ def beads_in_monomer(raw_topo):
     return bead_dict
 
 
-def prelim_parsing(raw_topo):
-    """Create a number of monomers and topology out of the submitted string"""
-    topo_str, Nm = raw_topo.split(")")[0], int(raw_topo.split(")")[-1])
-    topo_str = topo_str.lstrip("(")
-    return topo_str, Nm
-
-
-def construct_bonds(bead_list, Nm):
-    """From a list of beads construct bonds"""
-    Nbm = len(bead_list)      # num beads per monomer, 5 in case Nafion
-    bond_mat = np.zeros((Nm*Nbm, 2))
+def construct_bonds(bead_list, Nm, start_num=0):
+    """From a given bead list construct bonds"""
+    Nbm = len(bead_list)
+    bond_mat = np.zeros((Nm*Nbm, 3), dtype=int)
     cnt = 0
     for i in range(Nm):
         for j in range(Nbm):
-            bond_mat[cnt] = [Nbm*i + bead_list[j][0], Nbm*i + bead_list[j][3]]
+            if i == 0:
+                bond_type = "A A"
+            else:
+                bond_type = str(bead_list[j][1]) + " " + \
+                            str(bead_list[ bead_list[j][3] ][1])  # careful w -1
+            try:
+                bond_num = bond_map("ABCW")[bond_type]        # MAKE "ABCW" GENERAL
+            except KeyError:
+                bond_num = bond_map("ABCW")[bond_type[::-1]]  # "C A" -> "A C"
+
+            bond_mat[cnt] = [bond_num, Nbm*i + bead_list[j][0], Nbm*i + bead_list[j][3]]
             cnt += 1
+    bond_mat += start_num     # offset to account for a number of chains
     return bond_mat[1:]       # discard the first nonexistent "bond"
+
+
+def bond_map(atom_types="ABCW"):
+    """Map bond pairs to single number"""
+    N = len(atom_types)
+    map = {}
+    cnt = 1
+    for i in range(N):
+        for j in range(i+1):
+            map[atom_types[i] + " " + atom_types[j]] = cnt
+            cnt += 1
+    return map
 
 
 if __name__ == "__main__":
@@ -88,8 +111,7 @@ if __name__ == "__main__":
     print "Num beads in monomer:", sum([v for v in bead_dict.itervalues()])
     print "Testing correct parsing of topology string:\n", np.array(bead_list)
     
-    bond_mat = construct_bonds(bead_list, 3)
+    print bond_map("ABCW")
+    bond_mat = construct_bonds(bead_list, 3, 0)
     print "Testing connectivity for 3 monomers:\n", bond_mat
-    
-    
     
