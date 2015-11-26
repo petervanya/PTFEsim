@@ -9,3 +9,5 @@
 *.in
 *.lammps
 *.yaml
+Dump/
+todo.md
