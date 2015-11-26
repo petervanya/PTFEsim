@@ -16,6 +16,18 @@ import re
 from docopt import docopt
 
 
+def bond_map(atom_types="ABCW"):
+    """Map bond pairs to single number"""
+    N = len(atom_types)
+    map = {}
+    cnt = 1
+    for i in range(N):
+        for j in range(i+1):
+            map[atom_types[i] + " " + atom_types[j]] = cnt
+            cnt += 1
+    return map
+
+
 def prelim_parsing(raw_topo):
     """Create a number of monomers and topology out of the submitted string"""
     topo_str, Nm = raw_topo.split(")")[0], int(raw_topo.split(")")[-1])
@@ -73,7 +85,7 @@ def construct_bonds(bead_list, Nm, start_num=0):
                 bond_type = "A A"
             else:
                 bond_type = str(bead_list[j][1]) + " " + \
-                            str(bead_list[ bead_list[j][3] ][1])  # careful w -1
+                            str(bead_list[ bead_list[j][3] ][1])
             try:
                 bond_num = bond_map("ABCW")[bond_type]        # MAKE "ABCW" GENERAL
             except KeyError:
@@ -83,18 +95,6 @@ def construct_bonds(bead_list, Nm, start_num=0):
             cnt += 1
     bond_mat += start_num     # offset to account for a number of chains
     return bond_mat[1:]       # discard the first nonexistent "bond"
-
-
-def bond_map(atom_types="ABCW"):
-    """Map bond pairs to single number"""
-    N = len(atom_types)
-    map = {}
-    cnt = 1
-    for i in range(N):
-        for j in range(i+1):
-            map[atom_types[i] + " " + atom_types[j]] = cnt
-            cnt += 1
-    return map
 
 
 if __name__ == "__main__":
