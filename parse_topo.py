@@ -35,11 +35,11 @@ def prelim_parsing(raw_topo):
     return topo_str, Nm
 
 
-def bead_parser(raw_topo):
+def parse_beads(raw_topo):
     """From a string parse the beads and numbers in one monomer"""
     topo_str, Nm = prelim_parsing(raw_topo)
     topo_entries = [s.strip(" ") for s in topo_str.split(",")]
-    print "Topology:", topo_entries
+#    print "Topology:", topo_entries
     Nbm = sum([int(i) for i in re.findall(r"\d+", topo_str)])
     bead_list = []
     cnt = 1
@@ -91,9 +91,11 @@ def construct_bonds(bead_list, Nm, start_num=0):
             except KeyError:
                 bond_num = bond_map("ABCW")[bond_type[::-1]]  # "C A" -> "A C"
 
-            bond_mat[cnt] = [bond_num, Nbm*i + bead_list[j][0], Nbm*i + bead_list[j][3]]
+            bond_mat[cnt] = [bond_num, \
+                             bead_list[j][0] + Nbm*i + start_num, \
+                             bead_list[j][3] + Nbm*i + start_num]
             cnt += 1
-    bond_mat += start_num     # offset to account for a number of chains
+#    bond_mat += start_num     # offset to account for a number of chains
     return bond_mat[1:]       # discard the first nonexistent "bond"
 
 
@@ -105,7 +107,7 @@ if __name__ == "__main__":
 #    Nbm = sum([int(i) for i in re.findall(r"\d+", topo_str)]) # or re.findall(r"[0-9]", topo_str)
 #    print "Number of beads in monomer:", Nbm
 
-    bead_list, Nm = bead_parser(raw_topo)
+    bead_list, Nm = parse_beads(raw_topo)
     bead_dict = beads_in_monomer(raw_topo)
     print "Beads in monomer:\n", bead_dict
     print "Num beads in monomer:", sum([v for v in bead_dict.itervalues()])
