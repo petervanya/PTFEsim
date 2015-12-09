@@ -61,7 +61,7 @@ def parse_beads(raw_topo):
     return bead_list, Nm
 
 
-def beads_in_monomer(raw_topo):
+def gen_bead_dict(raw_topo):
     """Return dict with bead types and their numbers in one monomer"""
     topo_str, Nm = prelim_parsing(raw_topo)
     topo_entries = [s.strip(" ") for s in topo_str.split(",")]
@@ -95,25 +95,19 @@ def construct_bonds(bead_list, Nm, start_num=0):
                              bead_list[j][0] + Nbm*i + start_num, \
                              bead_list[j][3] + Nbm*i + start_num]
             cnt += 1
-#    bond_mat += start_num     # offset to account for a number of chains
     return bond_mat[1:]       # discard the first nonexistent "bond"
 
 
 if __name__ == "__main__":
     args = docopt(__doc__)
     raw_topo = args["--topo"]
-    
-#    topo_str, Nm = prelim_parsing(raw_topo)
-#    Nbm = sum([int(i) for i in re.findall(r"\d+", topo_str)]) # or re.findall(r"[0-9]", topo_str)
-#    print "Number of beads in monomer:", Nbm
-
     bead_list, Nm = parse_beads(raw_topo)
-    bead_dict = beads_in_monomer(raw_topo)
+    bead_dict = gen_bead_dict(raw_topo)
     print "Beads in monomer:\n", bead_dict
     print "Num beads in monomer:", sum([v for v in bead_dict.itervalues()])
     print "Testing correct parsing of topology string:\n", np.array(bead_list)
     
-    print bond_map("ABCW")
+#    print bond_map("ABCW")
     bond_mat = construct_bonds(bead_list, 3, 0)
     print "Testing connectivity for 3 monomers:\n", bond_mat
     
