@@ -9,5 +9,6 @@
 *.in
 *.lammps
 *.yaml
+*.xyz
 Dump/
 todo.md
