@@ -15,13 +15,13 @@ topology:       (A 3, [B 1], [C 1])15
 water-uptake:   9         # water uptake, num H2O/SO3H
 gamma:          1.0       # DPD drag coefficient
 
-pair-coeffs:           # DPD pair coeffs, Wu etal., EES (2008), DPD units of kBT
-    A B: 29.0
-    A C: 49.3
-    A W: 36.0
-    B C: 33.8
-    B W: 30.0
-    C W: 29.9
+ksi-params:           # DPD Flory-Huggins params, Wu etal., EES (2008), DPD units of kBT
+    A B: 1.23
+    A C: 7.44
+    A W: 3.36
+    B C: 2.70
+    B W: 1.53
+    C W: 1.48
 
 bond-coeffs:           # spring const param k_ij
     A A: 4.0
