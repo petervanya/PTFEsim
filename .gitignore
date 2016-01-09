@@ -2,7 +2,9 @@
 *~
 *.txt
 *.png
+*.o
 *.so
+*.mod
 *.out
 *.log
 *.data
