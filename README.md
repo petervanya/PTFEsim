@@ -27,6 +27,6 @@ Data file contains entries in SI units.
 * Numpy, f2py
 * `sudo pip install docopt` for nice command line reading
 * Compile the Fortran module using
- ```bash
+ ```
  $ f2py --fcompiler=gnu95 -c f_rdf.f90 -m f_rdf
  ```
