@@ -9,7 +9,7 @@ subroutine pair_dist_mat(xyz, n, arr)
     integer(k), intent(in) :: n
     real(dp), intent(in) :: xyz(n, 3)
     real(dp), intent(out) :: arr(n*(n-1)/2)
-    integer :: i, j, cnt
+    integer(k) :: i, j, cnt
 
     cnt = 1
     do i = 1, n
@@ -30,7 +30,7 @@ subroutine pair_dist_mat2(xyz, n, xyz2, n2, arr)
     real(dp), intent(in) :: xyz(n, 3)
     real(dp), intent(in) :: xyz2(n2, 3)
     real(dp), intent(out) :: arr(n*n2)
-    integer :: i, j, cnt
+    integer(k) :: i, j, cnt
 
     cnt = 1
     do i = 1, n
