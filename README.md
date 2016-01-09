@@ -24,5 +24,7 @@ Default cell size: a few (5-20) DPD sizes (one = 8.14 AA)
 Data file contains entries in SI units.
 
 ## Dependencies
-* Numpy
+* Numpy, f2py
 * `sudo pip install docopt` for nice command line reading
+* Compile the Fortran module using
+ ```$ f2py --fcompiler=gnu95 -c f_rdf.f90 -m f_rdf```
