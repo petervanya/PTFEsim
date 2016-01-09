@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Usage:
-    water_profile.py <files> (1d --axis <axis> | 2d --plane <plane>)
+    water_profile.py <files> (1d --axis <axis> | 2d --plane <plane>) [--plot]
 
 Arguments:
     <files>         Dump files from LAMMPS
@@ -13,6 +13,8 @@ pv278@cam.ac.uk, 03/01/15
 """
 import numpy as np
 from math import log, sqrt
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import glob, sys
 from docopt import docopt
 
@@ -82,8 +84,9 @@ if __name__ == "__main__":
             print "Wrong axis, choose from 'x', 'y', 'z'."
             sys.exit()
         profile = create_1d_profile(dumpfiles, axis)
-        print profile
-        np.savetxt("profile_1d.out", profile)
+        outname = "profile_1d.out"
+        np.savetxt(outname, profile)
+        print "Array saved in", outname
     elif args["2d"]:
         try:
             plane = planes[args["<plane>"]]
@@ -91,7 +94,15 @@ if __name__ == "__main__":
             print "Wrong plane, choose from 'xy', 'yz', 'xz'."
             sys.exit()
         profile = create_2d_profile(dumpfiles, plane)
-        print profile
-        np.savetxt("profile_2d.out", profile)
+        outname = "profile_2d.out"
+        np.savetxt(outname, profile)
+        print "Matrix saved in", outname
+        if args["--plot"]:
+            plt.imshow(profile, cmap = cm.Greys_r)
+            plotname = "plot_2d.png"
+            plt.savefig(plotname)
+            print "Plot saved in", plotname
+#            plt.show()
+
 
 
