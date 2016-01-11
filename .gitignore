@@ -10,7 +10,7 @@
 *.data
 *.in
 *.lammps
-*.yaml
+input.yaml
 *.xyz
 Dump/
 TODO.md
