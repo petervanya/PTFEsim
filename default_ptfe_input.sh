@@ -22,6 +22,14 @@ ksi-params:           # DPD Flory-Huggins params, Wu etal., EES (2008), DPD unit
     B C: 2.70
     B W: 1.53
     C W: 1.48
+    A E: 0.12
+    B E: 0.71
+    C E: 0.74
+    W E: 3.03
+    A P: 63.75
+    B P: 60.23
+    C P: 62.80
+    W P: 33.10
 
 bond-coeffs:           # spring const param k_ij
     A A: 4.0
