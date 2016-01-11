@@ -21,9 +21,7 @@ import matplotlib.pyplot as plt
 from math import pi, sqrt, log
 import glob, sys
 from docopt import docopt
-import f_rdf      # Fortran module
-
-bins = np.arange(0)
+from f_rdf import f_rdf      # Fortran module
 
 def set_num_bins(N, method="sqrt"):
     """Set number of histogram bins, various recipes.
@@ -56,23 +54,49 @@ def save_data(outfile, *args):
             line += "\n"
             f.write(line)
 
-
-def compute_rdf(outfile, nbins=30):
-    """Compute radial dist'n fcn from the xyz frame using Fortran routine"""
-    global bins
+def compute_rdf_np(outfile, nbins=30):
+    """Compute radial dist'n fcn from the xyz frame using 
+    Fortran routine for pair distances and numpy binning
+    NOT USED NOW"""
     A = read_outfile(outfile)
     xyz_C = A[A[:, 0] == 3][:, 1:]
     xyz_W = A[A[:, 0] == 4][:, 1:]
 
-    d_C = f_rdf.f_rdf.pair_dist_mat(xyz_C)         # rdf for beads C
-    rdf_raw_C, r = np.histogram(d_C, bins=nbins)
+    d_C = f_rdf.pair_dist_arr(xyz_C)         # rdf for beads C
+    print "  Distance matrix for C beads done."
+    rdf_raw_C, r = np.histogram(d_C, nbins)
+    print "  Binning for C beads done."
     del d_C
-    d_W = f_rdf.f_rdf.pair_dist_mat(xyz_W)         # rdf for beads W
-    rdf_raw_W, r = np.histogram(d_W, bins=nbins)
+    d_W = f_rdf.pair_dist_arr(xyz_W)         # rdf for beads W
+    print "  Distance matrix for W beads done."
+    rdf_raw_W, r = np.histogram(d_W, nbins)
+    print "  Binning for W beads done."
     del d_W
-    d_CW = f_rdf.f_rdf.pair_dist_mat2(xyz_C, xyz_W) # rdf for combined beads C and W
-    rdf_raw_CW, r = np.histogram(d_CW, bins=nbins)
+    d_CW = f_rdf.pair_dist_arr2(xyz_C, xyz_W) # rdf for combined beads C and W
+    print "  Distance matrix for CW beads done."
+    rdf_raw_CW, r = np.histogram(d_CW, nbins)
+    print "  Binning for CW beads done."
     del d_CW
+
+    rdf_raw = rdf_raw_C * 3**2 + rdf_raw_W * 6**2 + rdf_raw_CW * 3*6
+    r = r[:-1] + np.diff(r)/2.0
+    dr = r[1] - r[0]
+    rdf = rdf_raw/(4*pi*r**2 * dr)
+    return r, rdf
+
+def compute_rdf(outfile, nbins=30):
+    """Compute radial dist'n fcn from the xyz frame
+    using Fortran routine, both distance matrix and binning"""
+    A = read_outfile(outfile)
+    xyz_C = A[A[:, 0] == 3][:, 1:]
+    xyz_W = A[A[:, 0] == 4][:, 1:]
+
+    rdf_raw_C, r = f_rdf.pair_dist_hist(xyz_C, nbins)
+    print "  Bead C pair dist and binning beads done"
+    rdf_raw_W, r = f_rdf.pair_dist_hist(xyz_W, nbins)
+    print "  Bead W pair dist and binning beads done"
+    rdf_raw_CW, r = f_rdf.pair_dist_hist2(xyz_C, xyz_W, nbins)
+    print "  Beads C and W pair dist and binning beads done"
     
     rdf_raw = rdf_raw_C * 3**2 + rdf_raw_W * 6**2 + rdf_raw_CW * 3*6
     r = r[:-1] + np.diff(r)/2.0
@@ -86,6 +110,8 @@ def master_rdf(outfiles, nbins=30):
     rdf_mat = []
     for outfile in outfiles:
         r, rdf_i = compute_rdf(outfile, nbins)
+        tempfile = "temp_rdf_" + outfile.split("/")[-1]
+        np.savetxt(tempfile, rdf_i)
         rdf_mat.append(rdf_i)
         print outfile, "done."
     rdf_mat = np.array(rdf_mat).T
@@ -100,7 +126,7 @@ if __name__ == "__main__":
 #    print args
     outfiles = glob.glob(args["<fnames>"])
     if len(outfiles) == 0:
-        print "ERROR: No xyz files found. Aborting."
+        print "ERROR: No xyz files found, aborting."
         sys.exit()
     print outfiles
     Nfiles = len(outfiles)
