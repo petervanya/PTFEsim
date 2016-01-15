@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Usage:
-    water_profile.py <files> (1d --axis <axis> | 2d --plane <plane>) [--plot]
+    water_profile.py <files> (1d --axis <axis> | 2d --plane <plane>) [--bins <bins>] [--plot]
 
 Arguments:
     <files>         Dump files from LAMMPS
@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import glob, sys
 from docopt import docopt
+import lmp_lib as ll
 
 
 def read_outfile(outfile):
@@ -26,13 +27,15 @@ def read_outfile(outfile):
     return A
 
 
-def set_num_bins(A):
-    """Set number of histogram bins, various recipes"""
-    N = len(A)
-    nbins = int(log(N, 2)+1) + 1   # Sturges' formula, from wiki
-    nbins = int(2*N**(1./3)) + 1   # Rice rule
-    nbins = int(sqrt(N)) + 1
-    return nbins
+def set_num_bins(N, method="sqrt"):
+    """Set number of histogram bins, various recipes.
+    Available methods: rice, sturges, sqrt (default)"""
+    if method == "rice":
+        return int(2*N**(1./3)) + 1   # Rice rule
+    elif method == "sturges":
+        return int(log(N, 2)+1) + 1   # Sturges' formula
+    else:
+        return int(sqrt(N)) + 1       # most primitive
 
 
 def create_1d_profile(dumpfiles, axis):
@@ -50,16 +53,13 @@ def create_1d_profile(dumpfiles, axis):
     return res
 
 
-def create_2d_profile(dumpfiles, plane):
+def create_2d_profile(dumpfiles, plane, nbins):
+    """TO DO: rethink the binning process"""
     Nfiles = len(dumpfiles)
-    nbins = 0
+    res = np.zeros((nbins, nbins))
     for dumpfile in dumpfiles:
         A = read_outfile(dumpfile)
         A = A[A[:, 0] == 4][:, 1:]    # water beads, SHOULD CONSIDER C AS WELL?
-        if nbins == 0:
-            nbins = set_num_bins(A) 
-            print "Number of bins =", nbins
-            res = np.zeros((nbins, nbins))
         profile, x, y = np.histogram2d(A[:, plane[0]], A[:, plane[1]], bins=nbins)
         res += profile/float(Nfiles)
     return res
@@ -76,33 +76,43 @@ if __name__ == "__main__":
         sys.exit()
     else:
         print dumpfiles
+    A = ll.read_xyzfile(dumpfiles[0])
+    if args["--bins"]:
+        nbins = int(args["<bins>"])
+    else:
+        nbins = set_num_bins(len(A))
 
     if args["1d"]:
         try:
-            axis = axes[args["<axis>"]]
+            axis = axes[args["--axis"]]
         except KeyError:
             print "Wrong axis, choose from 'x', 'y', 'z'."
             sys.exit()
-        profile = create_1d_profile(dumpfiles, axis)
+        profile = create_1d_profile(dumpfiles, axis, nbins)
         outname = "profile_1d.out"
         np.savetxt(outname, profile)
         print "Array saved in", outname
+        if args["--plot"]:
+            plt.plot(profile)
+            plotname = "profile_1d.png"
+            plt.savefig(plotname)
+            print "Plot saved in", plotname
     elif args["2d"]:
         try:
-            plane = planes[args["<plane>"]]
+            plane = planes[args["--plane"]]
         except KeyError:
             print "Wrong plane, choose from 'xy', 'yz', 'xz'."
             sys.exit()
-        profile = create_2d_profile(dumpfiles, plane)
+        profile = create_2d_profile(dumpfiles, plane, nbins)
         outname = "profile_2d.out"
         np.savetxt(outname, profile)
         print "Matrix saved in", outname
         if args["--plot"]:
             plt.imshow(profile, cmap = cm.Greys_r)
-            plotname = "plot_2d.png"
+            plt.axis("off")
+            plotname = "profile_2d.png"
             plt.savefig(plotname)
             print "Plot saved in", plotname
-#            plt.show()
 
 
 
