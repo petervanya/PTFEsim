@@ -32,7 +32,8 @@ kB = 1.38e-23
 NA = 6.022e23
 Maw = 1.67e-27
 d_DPD = 8.14e-10             # DPD distance unit
-elem_wts = {"C": 12, "F": 19, "O": 16, "H": 1, "S": 32, "Pt": 195}
+#elem_wts = {"C": 12, "F": 19, "O": 16, "H": 1, "S": 32, "Pt": 195}
+elem_wts = yaml.load(open(sys.path[0]+"/atomic_weights.yaml").read())
 rho_dry = 1950               # kg/m^3
 rho_wet = 1680
 rho_DPD = 3
@@ -335,13 +336,14 @@ if __name__ == "__main__":
         data = yaml.load(open(args["<input>"]))
     except IOError:
         print "File does not exist:", args["<input>"]
+    np.random.seed(1234)
     
     # ===== set general parameters
     T = data["temperature"]
     L = data["box-size"]*d_DPD
     rc = d_DPD                         # cutoff distance
     r0 = data["equilibrium-dist"] * d_DPD
-    gamma = data["gamma"] * d_DPD**3   # SI units
+    gamma = data["gamma"] * d_DPD**3   # SI units, SPHERES OR CUBES?
     lmbda = data["water-uptake"]
 
     # ===== set electrode parameters
@@ -351,11 +353,11 @@ if __name__ == "__main__":
         assert Lcl < L/2
         V = L**2 * 2*Lcl
         NCatoms = NA * rho_Cb * V/(elem_wts["C"]/1000.0)
-        NCb = int(V/d_DPD**3)
+        NCb = int(V/ (4*pi/3*d_DPD**3) )
         NPt = int(Pt_amount * NCb)
-        if NPt == 0:
-            print "Zero platinum beads, increase Pt amount. Aborting."
-            sys.exit()
+#        if NPt == 0:
+#            print "Zero platinum beads, increase Pt amount. Aborting."
+#            sys.exit()
         print "CL:", int(NCatoms/NCb), "carbon atoms per bead at density", rho_Cb
         print NCb, "carbon beads,", NPt, "platinum beads"
     else:
@@ -385,7 +387,7 @@ if __name__ == "__main__":
         Nw = (Nc*Nmc*(lmbda-3))/6
         N = Nc*Nmc*Nbm + Nw
     else:
-        N = int(rho_DPD * L**2*(L-2*Lcl)/d_DPD**3 )     # SPHERES OR CUBES?
+        N = int(rho_DPD * L**2*(L-2*Lcl)/ (4*pi/3*d_DPD**3) )     # SPHERES OR CUBES?
         Nc, Nw = calc_nc_nw(N, Nmc, Nbm, lmbda)
     print Nc, "polymer chains in a given volume"
 
@@ -399,7 +401,10 @@ if __name__ == "__main__":
     if args["--electrodes"]:
         el_xyz = get_carbon(NCb, L, Lcl, count=Nc+Nw+1)
         NCb = len(el_xyz)
-        pt_xyz = get_platinum(NPt, L, Lcl, count=Nc+Nw+NCb+1)
+        if NPt == 0:
+            pt_xyz = np.empty((0, 5), float)
+        else:
+            pt_xyz = get_platinum(NPt, L, Lcl, count=Nc+Nw+NCb+1)
         xyz = np.vstack((poly_xyz, wb_xyz, el_xyz, pt_xyz))
         Nbt = Npbt + 2
         masses = dict( (i, nafion_bead_wt(i)*Maw) for i in range(1, Nbt+1) )  # SI units
