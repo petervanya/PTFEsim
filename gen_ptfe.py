@@ -31,6 +31,7 @@ import parse_topo as pt
 kB = 1.38e-23
 NA = 6.022e23
 Maw = 1.67e-27
+m0 = 6*18*Maw
 d_DPD = 8.14e-10             # DPD distance unit
 #elem_wts = {"C": 12, "F": 19, "O": 16, "H": 1, "S": 32, "Pt": 195}
 elem_wts = yaml.load(open(sys.path[0]+"/atomic_weights.yaml").read())
@@ -342,9 +343,14 @@ if __name__ == "__main__":
     T = data["temperature"]
     L = data["box-size"]*d_DPD
     rc = d_DPD                         # cutoff distance
+    eps = 25*kB*T
+    tau = sqrt(m0*rc**2/eps)
+    gamma = data["gamma"] * m0/tau   # SI units, SPHERES OR CUBES?
     r0 = data["equilibrium-dist"] * d_DPD
-    gamma = data["gamma"] * d_DPD**3   # SI units, SPHERES OR CUBES?
     lmbda = data["water-uptake"]
+    if lmbda < 3:
+        print "Water uptake cannot be less than 3."
+        sys.exit()
 
     # ===== set electrode parameters
     if args["--electrodes"]:
@@ -355,9 +361,6 @@ if __name__ == "__main__":
         NCatoms = NA * rho_Cb * V/(elem_wts["C"]/1000.0)
         NCb = int(V/ (4*pi/3*d_DPD**3) )
         NPt = int(Pt_amount * NCb)
-#        if NPt == 0:
-#            print "Zero platinum beads, increase Pt amount. Aborting."
-#            sys.exit()
         print "CL:", int(NCatoms/NCb), "carbon atoms per bead at density", rho_Cb
         print NCb, "carbon beads,", NPt, "platinum beads"
     else:
@@ -397,7 +400,10 @@ if __name__ == "__main__":
 
     # ===== atoms
     poly_xyz = get_polymer_atoms(beads, Nc, Nmc, L, Lcl, mu, sigma)
-    wb_xyz = gen_wb_atoms(Nw, L, Lcl, count=Nc+1)
+    if Nw == 0:
+        wb_xyz = np.empty((0, 5))
+    else:
+        wb_xyz = gen_wb_atoms(Nw, L, Lcl, count=Nc+1)
     if args["--electrodes"]:
         el_xyz = get_carbon(NCb, L, Lcl, count=Nc+Nw+1)
         NCb = len(el_xyz)
