@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Usage:
-    water_profile.py <files> (1d --axis <axis> | 2d --plane <plane>) [--bins <bins>] [--plot]
+    water_profile.py <files> (1d <axis> | 2d <plane>) [--bins <bins>] [--boxsize <L>]
 
 Arguments:
     <files>         Dump files from LAMMPS
@@ -8,6 +8,9 @@ Arguments:
     2d              2d profile of water
     --axis <axis>   Select axis to profile along ("x", "y", "z")
     --plane <plane> Which plane to profile on ("xy", "yz", "xz")
+
+Options:
+    --boxsize <L>   Box size [default: 40]
 
 pv278@cam.ac.uk, 03/01/15
 """
@@ -18,6 +21,8 @@ import matplotlib.cm as cm
 import glob, sys
 from docopt import docopt
 import lmp_lib as ll
+
+rc = 8.14e-10
 
 
 def read_outfile(outfile):
@@ -38,19 +43,32 @@ def set_num_bins(N, method="sqrt"):
         return int(sqrt(N)) + 1       # most primitive
 
 
-def create_1d_profile(dumpfiles, axis):
+def create_1d_profile(dumpfiles, axis, nbins):
+    """DEPRECATED"""
     Nfiles = len(dumpfiles)
-    nbins = 0
+    res = np.zeros(nbins)
     for dumpfile in dumpfiles:
         A = read_outfile(dumpfile)
         A = A[A[:, 0] == 4][:, 1:]   # water beads, SHOULD CONSIDER C AS WELL?
-        if nbins == 0:
-            nbins = set_num_bins(A)
-            print "Number of bins =", nbins
-            res = np.zeros(nbins)
         profile, bins = np.histogram(A[:, axis], bins=nbins)
         res += profile/float(Nfiles)
-    return res
+    bins = bins[:-1] + np.diff(bins)/2.0
+    return res, bins
+
+
+def create_1d_profile2(dumpfiles, axis, bins):
+    """NEW function with pre-set bins"""
+    Nfiles = len(dumpfiles)
+    res = np.zeros(len(bins)-1)
+    for dumpfile in dumpfiles:
+        A = read_outfile(dumpfile)
+        beads4 = A[A[:, 0] == 4][:, 1:]   # bead W, 6 H2O molecules
+        beads3 = A[A[:, 0] == 3][:, 1:]   # bead C, 3 H2O molecules
+        profile4, nic = np.histogram(beads4[:, axis], bins=bins)
+        profile3, nic = np.histogram(beads3[:, axis], bins=bins)
+        res += 6*profile4/float(Nfiles)
+        res += 3*profile3/float(Nfiles)
+    return res, bins
 
 
 def create_2d_profile(dumpfiles, plane, nbins):
@@ -68,6 +86,7 @@ def create_2d_profile(dumpfiles, plane, nbins):
 if __name__ == "__main__":
     args = docopt(__doc__)
 #    print args
+    L = float(args["--boxsize"])*rc
     axes = {"x": 0, "y": 1, "z": 2}
     planes = {"xy": (0, 1), "yz": (1, 2), "xz": (0, 2)}
     dumpfiles = glob.glob(args["<files>"])
@@ -81,25 +100,32 @@ if __name__ == "__main__":
         nbins = int(args["<bins>"])
     else:
         nbins = set_num_bins(len(A))
-
+    print "Number of bins:", nbins
+    print "Box size:", L
+    
     if args["1d"]:
         try:
-            axis = axes[args["--axis"]]
+            axis = axes[args["<axis>"]]
         except KeyError:
             print "Wrong axis, choose from 'x', 'y', 'z'."
             sys.exit()
-        profile = create_1d_profile(dumpfiles, axis, nbins)
+        bins = np.linspace(0, L, nbins)
+#        profile, bins = create_1d_profile(dumpfiles, axis, nbins)
+        profile, bins = create_1d_profile2(dumpfiles, axis, bins)
+        bins = bins[:-1] + np.diff(bins)/2.0
         outname = "profile_1d.out"
-        np.savetxt(outname, profile)
+        np.savetxt(outname, zip(bins, profile))
         print "Array saved in", outname
-        if args["--plot"]:
-            plt.plot(profile)
-            plotname = "profile_1d.png"
-            plt.savefig(plotname)
-            print "Plot saved in", plotname
+
+        plt.plot(bins, profile)
+        plt.xlim([0, bins[-1]])
+        plotname = "profile_1d.png"
+        plt.savefig(plotname)
+        print "Plot saved in", plotname
+
     elif args["2d"]:
         try:
-            plane = planes[args["--plane"]]
+            plane = planes[args["<plane>"]]
         except KeyError:
             print "Wrong plane, choose from 'xy', 'yz', 'xz'."
             sys.exit()
@@ -107,12 +133,12 @@ if __name__ == "__main__":
         outname = "profile_2d.out"
         np.savetxt(outname, profile)
         print "Matrix saved in", outname
-        if args["--plot"]:
-            plt.imshow(profile, cmap = cm.Greys_r)
-            plt.axis("off")
-            plotname = "profile_2d.png"
-            plt.savefig(plotname)
-            print "Plot saved in", plotname
+
+        plt.imshow(profile, cmap = cm.Greys_r)
+        plt.axis("off")
+        plotname = "profile_2d.png"
+        plt.savefig(plotname)
+        print "Plot saved in", plotname
 
 
 
