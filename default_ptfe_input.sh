@@ -8,12 +8,12 @@ cat >input.yaml <<EOF
 # E: electrodes from carbon
 # P: platinum on electrodes
 # =====
-box-size:       5        # DPD units, 1 = 8.14 AA
+box-size:       10        # DPD units, 1 = 8.14 AA
 temperature:    300       # K
 PTFE:           Nafion    # defines beads
 topology:       (A 3, [B 1], [C 1])15
 water-uptake:   9         # water uptake, num H2O/SO3H
-gamma:          1.0       # DPD drag coefficient
+gamma:          4.5       # DPD drag coefficient
 
 ksi-params:           # DPD Flory-Huggins params, Wu etal., EES (2008), DPD units of kBT
     A B: 1.23
