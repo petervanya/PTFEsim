@@ -3,7 +3,7 @@
    si2aa.py <infile>
 
 Modify xyz files by converting metres to Angstroms
-so that they can be opened by VMD.
+to conform with VMD standards.
 
 pv278@cam.ac.uk, 11/01/16
 """
