@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 """Usage:
-    water_profile.py <files> (1d <axis> | 2d <plane>) [--bins <bins>] [--boxsize <L>]
+    water_profile.py <files> (1d <axis> | 2d <plane>) [--bins <bins>]
+                     [--subst <s>] [--boxsize <L>]
+
+Create 1d or 2d profile of water molecules in Nafion w or wo electrodes.
 
 Arguments:
     <files>         Dump files from LAMMPS
@@ -11,6 +14,7 @@ Arguments:
 
 Options:
     --boxsize <L>   Box size [default: 40]
+    --subst <s>     Requested substance: "water", "sulfonic", "backbone" [default: water]
 
 pv278@cam.ac.uk, 03/01/15
 """
@@ -23,7 +27,6 @@ from docopt import docopt
 import lmp_lib as ll
 
 rc = 8.14e-10
-
 
 def read_outfile(outfile):
     """Read one xyz outfile into a numpy matrix"""
@@ -56,18 +59,37 @@ def create_1d_profile(dumpfiles, axis, nbins):
     return res, bins
 
 
-def create_1d_profile2(dumpfiles, axis, bins):
-    """NEW function with pre-set bins"""
+def create_1d_profile2(dumpfiles, axis, subst, bins):
+    """NEW function with pre-set bins and fixed water plot"""
     Nfiles = len(dumpfiles)
     res = np.zeros(len(bins)-1)
-    for dumpfile in dumpfiles:
-        A = read_outfile(dumpfile)
-        beads4 = A[A[:, 0] == 4][:, 1:]   # bead W, 6 H2O molecules
-        beads3 = A[A[:, 0] == 3][:, 1:]   # bead C, 3 H2O molecules
-        profile4, nic = np.histogram(beads4[:, axis], bins=bins)
-        profile3, nic = np.histogram(beads3[:, axis], bins=bins)
-        res += 6*profile4/float(Nfiles)
-        res += 3*profile3/float(Nfiles)
+    if subst == "water":
+        for dumpfile in dumpfiles:
+            A = read_outfile(dumpfile)
+            beads3 = A[A[:, 0] == 3][:, 1:]   # bead C, 3 H2O molecules
+            beads4 = A[A[:, 0] == 4][:, 1:]   # bead W, 6 H2O molecules
+            profile3, nic = np.histogram(beads3[:, axis], bins=bins)
+            profile4, nic = np.histogram(beads4[:, axis], bins=bins)
+            res += 3*profile3/float(Nfiles)
+            res += 6*profile4/float(Nfiles)
+    elif subst == "sulfonic":
+        for dumpfile in dumpfiles:
+            A = read_outfile(dumpfile)
+            beads = A[A[:, 0] == 3][:, 1:]
+            profile, nic = np.histogram(beads[:, axis], bins=bins)
+            res += profile/float(Nfiles)
+    elif subst == "backbone":
+        for dumpfile in dumpfiles:
+            A = read_outfile(dumpfile)
+            beads1 = A[A[:, 0] == 1][:, 1:]   # bead A, 6 CF2 groups
+            beads2 = A[A[:, 0] == 2][:, 1:]   # bead B, 5 CF2 groups
+            beads3 = A[A[:, 0] == 3][:, 1:]   # bead B, 1 CF3 group
+            profile1, nic = np.histogram(beads1[:, axis], bins=bins)
+            profile2, nic = np.histogram(beads2[:, axis], bins=bins)
+            profile3, nic = np.histogram(beads3[:, axis], bins=bins)
+            res += 6*profile1/float(Nfiles)
+            res += 5*profile2/float(Nfiles)
+            res += profile3/float(Nfiles)
     return res, bins
 
 
@@ -93,25 +115,27 @@ if __name__ == "__main__":
     if not dumpfiles:
         print "No files captured, aborting."
         sys.exit()
-    else:
-        print dumpfiles
     A = ll.read_xyzfile(dumpfiles[0])
     if args["--bins"]:
         nbins = int(args["<bins>"])
     else:
         nbins = set_num_bins(len(A))
-    print "Number of bins:", nbins
-    print "Box size:", L
+    subst = args["--subst"]
+    if subst not in ["water", "sulfonic", "backbone"]:
+        print "Only 'water', 'sulfonic', 'backbone' available, aborting."
+        sys.exit()
+    print "Substance:", subst, "| Number of bins:", nbins, "| Box size:", L/rc
+    print dumpfiles
     
     if args["1d"]:
         try:
             axis = axes[args["<axis>"]]
         except KeyError:
-            print "Wrong axis, choose from 'x', 'y', 'z'."
+            print "Wrong axis, choose from 'x', 'y', 'z'. Aborting."
             sys.exit()
         bins = np.linspace(0, L, nbins)
 #        profile, bins = create_1d_profile(dumpfiles, axis, nbins)
-        profile, bins = create_1d_profile2(dumpfiles, axis, bins)
+        profile, bins = create_1d_profile2(dumpfiles, axis, subst, bins)
         bins = bins[:-1] + np.diff(bins)/2.0
         outname = "profile_1d.out"
         np.savetxt(outname, zip(bins, profile))
