@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Usage:
-    gen_ptfe.py <input> [--electrodes] [--parsetopo] [--expt-rho] 
+    gen_ptfe.py <input> [--el <el>] [--parsetopo] [--expt-rho] 
                         [--save <fname>] [--xyz <xyz>]
 
 Generate LAMMPS data file from input.yaml file.
@@ -16,7 +16,7 @@ Arguments:
 Options:
     --parsetopo              Get bead topology from the string in input.yaml, else use default (PTFE)
     --expt-rho               Use experimental density value instead of DPD (rho=3)
-    --electrodes             Add electrodes
+    --el <el>                Add electrodes: "carbon", "quartz" or (amorphous) "silica"
     --save <fname>           Save the data file [default: temp.data]
     --xyz <xyz>              Print as xyz file for VMD view
 
@@ -30,16 +30,20 @@ import parse_topo as pt
 
 kB = 1.38e-23
 NA = 6.022e23
-Maw = 1.67e-27
+Maw = 1.66e-27
 m0 = 6*18*Maw
 rc = 8.14e-10             # DPD distance unit
 #elem_wts = {"C": 12, "F": 19, "O": 16, "H": 1, "S": 32, "Pt": 195}
 elem_wts = yaml.load(open(sys.path[0]+"/atomic_weights.yaml").read())
-rho_dry = 1950               # kg/m^3
+rho_dry = 1950              # kg/m^3
 rho_wet = 1680
 rho_DPD = 3
 rho_C = 2000                # carbon black
+rho_quartz = 2648
+rho_silica = 2196
 rho_Pt = 21450
+a_ii = 25.0
+k_ii = 4.0
 
 
 def nafion_bead_wt(bead, arg="dry"):
@@ -188,11 +192,11 @@ def gen_pair_coeffs(bead_types, atoms_yaml, gamma, rc):
             lkey = "%s %s" % (num2coeff[j], num2coeff[i])
             if lkey in atoms_yaml.keys() or lkey[::-1] in atoms_yaml.keys():
                 try:
-                    a_ij[key] = [(25 + 3.27*atoms_yaml[lkey]) * kB*T/rc, gamma, rc]
+                    a_ij[key] = [(a_ii + 3.27*atoms_yaml[lkey]) * kB*T/rc, gamma, rc]
                 except KeyError: # "B A" -> "A B"
-                    a_ij[key] = [(25 + 3.27*atoms_yaml[lkey[::-1]]) * kB*T/rc, gamma, rc]
+                    a_ij[key] = [(a_ii + 3.27*atoms_yaml[lkey[::-1]]) * kB*T/rc, gamma, rc]
             else:
-                a_ij[key] = [25 * kB*T/rc, gamma, rc]
+                a_ij[key] = [a_ii * kB*T/rc, gamma, rc]
     return a_ij
 
 
@@ -211,7 +215,7 @@ def gen_bond_coeffs(bead_types, bonds_yaml, r0):
             if key in bonds_yaml.keys():
                 k_ij[bmap[key]] = [bonds_yaml[key] * kB*T/(rc**2), r0]
             else:
-                k_ij[bmap[key]] = [4 * kB*T/(rc**2), r0]
+                k_ij[bmap[key]] = [k_ii * kB*T/(rc**2), r0]
     return k_ij
 
 
@@ -229,22 +233,23 @@ def gen_water_beads(Nw, L, Lcl, count=1):
     return xyz
 
 
-def get_carbon(NCb, L, Lcl, count=1):
-    """Generate electrodes on both sides of the membrane"""
-    xyz1 = np.zeros((NCb/2, 5))
-    xyz1[:, 2:5] = np.random.rand(NCb/2, 3)
+def gen_electrodes(NELb, L, Lcl, count=1):
+    """Generate electrodes on both sides of the membrane
+    NELb: number of electrode beads"""
+    xyz1 = np.zeros((NELb/2, 5))
+    xyz1[:, 2:5] = np.random.rand(NELb/2, 3)
     xyz1[:, 2] *= Lcl
     xyz1[:, 3] *= L
     xyz1[:, 4] *= L
-    xyz2 = np.zeros((NCb - NCb/2, 5))
-    xyz2[:, 2:5] = np.random.rand(NCb - NCb/2, 3)
+    xyz2 = np.zeros((NELb - NELb/2, 5))
+    xyz2[:, 2:5] = np.random.rand(NELb - NELb/2, 3)
     xyz2[:, 2] *= Lcl
     xyz2[:, 2] += L - Lcl
     xyz2[:, 3] *= L
     xyz2[:, 4] *= L
     xyz = np.vstack((xyz1, xyz2))
     xyz[:, 1] = 5      # atom id, MAKE THIS GENERAL
-    xyz[:, 0] = range(count, count+NCb)
+    xyz[:, 0] = range(count, count+NELb)
     return xyz
 
 
@@ -353,19 +358,32 @@ if __name__ == "__main__":
         sys.exit()
 
     # ===== set electrode parameters
-    if args["--electrodes"]:
+    if args["--el"]:
+        elmat = args["--el"]
+        if not elmat in ["carbon", "quartz", "silica"]:
+            print "Choose electrodes from 'carbon', 'quatrz', 'silica' (amorphous). Aborting."
+            sys.exit()
         Lcl = data["electrodes"]["width"] * rc  # catalyst layer width
-        print "Electrodes on.\nCatalyst layer on both sides:", Lcl/rc
+        print "Electrodes on | CL width on both sides:", Lcl/rc, "| Material:", elmat
         if Lcl > L/2:
-            print "Catalyst layer thicker than membrane, aborting"
+            print "Catalyst layer thicker than membrane, aborting."
             sys.exit()
         Pt_amount = data["electrodes"]["Pt-amount"]
         Vcl = L**2 * 2*Lcl
-        NCatoms = NA * rho_C * Vcl/(elem_wts["C"]*1e-3)
-        NCb = rho_DPD * int(Vcl/ rc**3)  # (4*pi/3*rc**3) ) must be cubes
-        NPt = int(Pt_amount * NCb)
-        print "CL:", int(NCatoms/NCb), "carbon atoms per bead at density", rho_C
-        print NCb, "carbon beads,", NPt, "platinum beads"
+        if elmat == "carbon":
+            Natoms = NA * rho_C * Vcl/(elem_wts["C"]*1e-3)
+            NELb = rho_DPD * int(Vcl/ rc**3)  # not (4*pi/3*rc**3) ) must be cubes
+            print "CL:", int(Natoms/NELb), "electrode atoms per bead at density", rho_C
+        elif elmat == "quartz":
+            Natoms = NA * rho_quartz * Vcl/((elem_wts["Si"] + 2*elem_wts["O"])*1e-3)
+            NELb = rho_DPD * int(Vcl/ rc**3)  # not (4*pi/3*rc**3) ) must be cubes
+            print "CL:", int(Natoms/NELb), "electrode atoms per bead at density", rho_quartz
+        elif elmat == "silica":
+            Natoms = NA * rho_silica * Vcl/((elem_wts["Si"] + 2*elem_wts["O"])*1e-3)
+            NELb = rho_DPD * int(Vcl/ rc**3)  # not (4*pi/3*rc**3) ) must be cubes
+            print "CL:", int(Natoms/NELb), "electrode atoms per bead at density", rho_silica
+        NPt = int(Pt_amount * NELb)
+        print NELb, "electrode beads,", NPt, "platinum beads"
     else:
         Lcl = 0.0
         print "Electrodes off."
@@ -409,13 +427,12 @@ if __name__ == "__main__":
         wb_xyz = np.empty((0, 5))
     else:
         wb_xyz = gen_water_beads(Nw, L, Lcl, count=Nc+1)
-    if args["--electrodes"]:
-        el_xyz = get_carbon(NCb, L, Lcl, count=Nc+Nw+1)
-        NCb = len(el_xyz)
+    if args["--el"]:
+        el_xyz = gen_electrodes(NELb, L, Lcl, count=Nc+Nw+1)
         if NPt == 0:
             pt_xyz = np.empty((0, 5), float)
         else:
-            pt_xyz = get_platinum(NPt, L, Lcl, count=Nc+Nw+NCb+1)
+            pt_xyz = get_platinum(NPt, L, Lcl, count=Nc+Nw+NELb+1)
         xyz = np.vstack((poly_xyz, wb_xyz, el_xyz, pt_xyz))
         Nbt = Npbt + 2
         masses = dict( (i, nafion_bead_wt(i)*Maw) for i in range(1, Nbt+1) )  # SI units
@@ -425,7 +442,7 @@ if __name__ == "__main__":
         Nbt = Npbt
         masses = dict( (i, nafion_bead_wt(i)*Maw) for i in range(1, Nbt+1) )  # SI units
     xyz_str = atoms2str(xyz)
-    print len(xyz), "beads created, density:", len(xyz) / (L**2 * (L-2*Lcl)) * rc**3
+    print len(xyz), "beads created, density:", len(xyz) / (L/rc)**3
 
     # ===== bonds
     bonds = bonds_mat2(data["topology"], Nc)
@@ -447,7 +464,7 @@ if __name__ == "__main__":
     if args["--save"]:
         fname = args["--save"]
         open(fname, "w").write(final_string)
-        print "Data file written in", fname
+        print "Data file saved in", fname
     else:
         print final_string
 
@@ -457,6 +474,6 @@ if __name__ == "__main__":
             f.write(str(len(xyz)) + "\nbla\n")
             for i in range(len(xyz)):
                 f.write("%i %e %e %e\n" % (xyz[i, 1], xyz[i, 2], xyz[i, 3], xyz[i, 4]))
-        print "xyz file written in", fname
+        print "xyz file saved in", fname
 
 
