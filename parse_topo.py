@@ -75,7 +75,8 @@ def gen_bead_dict(raw_topo):
 
 
 def construct_bonds(bead_list, Nm, start_num=0):
-    """From a given bead list construct bonds"""
+    """From a given bead list construct bonds
+    return (Nm*Nbm, 3) matrix, rows: [bond_type, atom1, atom2]"""
     Nbm = len(bead_list)
     bond_mat = np.zeros((Nm*Nbm, 3), dtype=int)
     cnt = 0
