@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Usage:
-    calc_chi.py <data> [--temp <T>]
+    calc_chi.py <data> [--temp <T>] [--save]
 
 Calculate Flory-Huggins chi params for all beads based on
 solubility and molar volume
@@ -17,7 +17,7 @@ from docopt import docopt
 R = 8.314
 
 def chi(b1, b2, T):
-    """Return chi based from lines of DataFrame"""
+    """Return chi based from lines of pd.DataFrame (pd.Series)"""
     return (b1.Vm + b2.Vm)/(2*R*T) * (b1.deltaT - b2.deltaT)**2
 
 
@@ -36,14 +36,14 @@ if __name__ == "__main__":
     args = docopt(__doc__)
     T = float(args["--temp"])
     tbl = pd.read_csv(args["<data>"], index_col=0)
-#    print tbl
     
     cols = tbl.index.values
-#    print tbl.index.values
-#    print tbl.ix["A"].Vm
-#    print type(tbl.ix["A"])
-#    print len(tbl)
-
     mat = gen_chi_mat(tbl, T)
-    print pd.DataFrame(mat, columns=cols, index=cols)
+    df_mat = pd.DataFrame(mat, columns=cols, index=cols)
+   
+    print df_mat
+    if args["--save"]:
+        df_mat.to_csv("ksi_params.out", float_format="%10.3f")
+        print "Table saved in ksi_params.out"
+
 
