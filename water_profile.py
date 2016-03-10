@@ -46,19 +46,6 @@ def set_num_bins(N, method="sqrt"):
         return int(sqrt(N)) + 1       # most primitive
 
 
-def create_1d_profile(dumpfiles, axis, nbins):
-    """DEPRECATED"""
-    Nfiles = len(dumpfiles)
-    res = np.zeros(nbins)
-    for dumpfile in dumpfiles:
-        A = read_outfile(dumpfile)
-        A = A[A[:, 0] == 4][:, 1:]   # water beads, SHOULD CONSIDER C AS WELL?
-        profile, bins = np.histogram(A[:, axis], bins=nbins)
-        res += profile/float(Nfiles)
-    bins = bins[:-1] + np.diff(bins)/2.0
-    return res, bins
-
-
 def create_1d_profile2(dumpfiles, axis, subst, bins):
     """NEW function with pre-set bins and fixed water plot"""
     Nfiles = len(dumpfiles)
@@ -94,7 +81,9 @@ def create_1d_profile2(dumpfiles, axis, subst, bins):
 
 
 def create_2d_profile(dumpfiles, plane, nbins):
-    """TO DO: rethink the binning process"""
+    """TO DO:
+    * rethink the binning process
+    * modify water so that C beads are considered as well"""
     Nfiles = len(dumpfiles)
     res = np.zeros((nbins, nbins))
     for dumpfile in dumpfiles:
@@ -111,6 +100,7 @@ if __name__ == "__main__":
     L = float(args["--boxsize"])*rc
     axes = {"x": 0, "y": 1, "z": 2}
     planes = {"xy": (0, 1), "yz": (1, 2), "xz": (0, 2)}
+    subst_map = {"water": "W", "sulfonic": "S", "backbone": "B"}
     dumpfiles = glob.glob(args["<files>"])
     if not dumpfiles:
         print "No files captured, aborting."
@@ -122,7 +112,7 @@ if __name__ == "__main__":
         nbins = set_num_bins(len(A))
     subst = args["--subst"]
     if subst not in ["water", "sulfonic", "backbone"]:
-        print "Only 'water', 'sulfonic', 'backbone' available, aborting."
+        print "Choose substance from 'water', 'sulfonic', 'backbone'."
         sys.exit()
     print "Substance:", subst, "| Number of bins:", nbins, "| Box size:", L/rc
     print dumpfiles
@@ -131,27 +121,28 @@ if __name__ == "__main__":
         try:
             axis = axes[args["<axis>"]]
         except KeyError:
-            print "Wrong axis, choose from 'x', 'y', 'z'. Aborting."
+            print "Choose axis from 'x', 'y', 'z'."
             sys.exit()
         bins = np.linspace(0, L, nbins)
-#        profile, bins = create_1d_profile(dumpfiles, axis, nbins)
         profile, bins = create_1d_profile2(dumpfiles, axis, subst, bins)
         bins = bins[:-1] + np.diff(bins)/2.0
-        outname = "profile_1d.out"
+
+#        outname = "profile_1d.out"
+        outname = "profile_1d_" + subst_map[subst] + "_" + str(len(dumpfiles)) + "f.out"
         np.savetxt(outname, zip(bins, profile))
         print "Array saved in", outname
 
-        plt.plot(bins, profile)
-        plt.xlim([0, bins[-1]])
-        plotname = "profile_1d.png"
-        plt.savefig(plotname)
-        print "Plot saved in", plotname
+#        plt.plot(bins, profile)
+#        plt.xlim([0, bins[-1]])
+#        plotname = "profile_1d.png"
+#        plt.savefig(plotname)
+#        print "Plot saved in", plotname
 
     elif args["2d"]:
         try:
             plane = planes[args["<plane>"]]
         except KeyError:
-            print "Wrong plane, choose from 'xy', 'yz', 'xz'."
+            print "Choose plane from 'xy', 'yz', 'xz'."
             sys.exit()
         profile = create_2d_profile(dumpfiles, plane, nbins)
         outname = "profile_2d.out"
