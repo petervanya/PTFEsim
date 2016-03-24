@@ -32,8 +32,7 @@ kB = 1.38e-23
 NA = 6.022e23
 Maw = 1.66e-27
 m0 = 6*18*Maw
-rc = 8.14e-10             # DPD distance unit
-#elem_wts = {"C": 12, "F": 19, "O": 16, "H": 1, "S": 32, "Pt": 195}
+rc = 8.14e-10               # DPD distance unit
 elem_wts = yaml.load(open(sys.path[0]+"/atomic_weights.yaml").read())
 rho_dry = 1950              # kg/m^3
 rho_wet = 1680
@@ -346,9 +345,8 @@ if __name__ == "__main__":
     
     T = data["temperature"]
     L = data["box-size"]*rc
-    eps = 25*kB*T
-    tau = sqrt(m0*rc**2/eps)
-    gamma = data["gamma"] * m0/tau   # SI units, SPHERES OR CUBES?
+    tau = sqrt(m0 * rc**2/(kB*T))    # PREVIOUSLY sqrt(m0*rc**2/eps)
+    gamma = data["gamma"] * m0/tau
     r0 = data["equilibrium-dist"] * rc
     lmbda = data["water-uptake"]
     print "=== Creating LAMMPS input file for Nafion ==="
@@ -415,7 +413,7 @@ if __name__ == "__main__":
     else:
         N = int(rho_DPD * L**2*(L-2*Lcl)/ rc**3) # must be cubes
         Nc, Nw = calc_nc_nw(N, Nmc, Nbm, lmbda)
-    print Nc, "polymer chains in a given volume"
+    print Nc, "polymer chains created"
 
     Nbc = Nbm*Nmc              
     Nb = Nbc*Nc                
@@ -450,7 +448,7 @@ if __name__ == "__main__":
     print len(bonds), "bonds created"
 
     # ===== pair and bond parameters
-    a_ij = gen_pair_coeffs(bead_types, data["ksi-params"], gamma, rc)
+    a_ij = gen_pair_coeffs(bead_types, data["chi-params"], gamma, rc)
     k_ij = gen_bond_coeffs(bead_types, data["bond-coeffs"], r0)
 
     # ===== putting it together
