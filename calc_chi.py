@@ -5,6 +5,9 @@
 Calculate Flory-Huggins chi params for all beads based on
 solubility and molar volume
 
+Arguments:
+    <data>              beads.csv file
+
 Options: 
     --temp <T>          Temperature [default: 300]
 
@@ -38,12 +41,13 @@ if __name__ == "__main__":
     tbl = pd.read_csv(args["<data>"], index_col=0)
     
     cols = tbl.index.values
-    mat = gen_chi_mat(tbl, T)
+    mat = gen_chi_mat(tbl, T)    # calculation
     df_mat = pd.DataFrame(mat, columns=cols, index=cols)
    
     print df_mat
     if args["--save"]:
-        df_mat.to_csv("ksi_params.out", float_format="%10.3f")
-        print "Table saved in ksi_params.out"
+        df_mat.to_csv("chi_params.out", float_format="%10.3f")
+        print "Table saved in chi_params.out"
+
 
 
