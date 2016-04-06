@@ -1,20 +1,26 @@
 #!/usr/bin/env python
 """Usage:
-    water_profile.py <files> (1d <axis> | 2d <plane>) [--bins <bins>]
-                     [--subst <s>] [--boxsize <L>]
+    water_profile.py <files> (1d <axis> | 2d <plane> --depth <d> --thick <h>)
+                     [--bins <bins>] [--subst <s>] [--boxsize <L>]
 
-Create 1d or 2d profile of water molecules in Nafion w or wo electrodes.
+Create 1D or 2D profile of water molecules in Nafion w or wo electrodes.
+* 1D: choose axis along which to profile
+* 2D: choose plane and depth at which to take a slab of thickness <h>
+      in DPD units (1 = 8.14 AA)
 
 Arguments:
     <files>         Dump files from LAMMPS
     1d              1d profile of water
     2d              2d profile of water
-    --axis <axis>   Select axis to profile along ("x", "y", "z")
-    --plane <plane> Which plane to profile on ("xy", "yz", "xz")
+    <axis>          Select the axis to profile along ("x", "y", "z")
+    <plane>         Select the plane to profile on ("xy", "yz", "xz")
 
 Options:
+    --depth <d>     Depth at which to profile the plane in DPD units [default: 20]
+    --thick <h>     Thickness of the profile in DPD units [default: 1]
     --boxsize <L>   Box size [default: 40]
     --subst <s>     Requested substance: "water", "sulfonic", "backbone" [default: water]
+    --bins <bins>   Number of bins for the histogram [default: 150]
 
 pv278@cam.ac.uk, 03/01/15
 """
@@ -46,24 +52,25 @@ def set_num_bins(N, method="sqrt"):
         return int(sqrt(N)) + 1       # most primitive
 
 
-def create_1d_profile2(dumpfiles, axis, subst, bins):
+def create_1d_profile(dumpfiles, axis, subst, bins):
     """NEW function with pre-set bins and fixed water plot"""
     Nfiles = len(dumpfiles)
     res = np.zeros(len(bins)-1)
+#    bins = 149   # TEMP SOL
     if subst == "water":
         for dumpfile in dumpfiles:
             A = read_outfile(dumpfile)
             beads3 = A[A[:, 0] == 3][:, 1:]   # bead C, 3 H2O molecules
             beads4 = A[A[:, 0] == 4][:, 1:]   # bead W, 6 H2O molecules
-            profile3, nic = np.histogram(beads3[:, axis], bins=bins)
-            profile4, nic = np.histogram(beads4[:, axis], bins=bins)
+            profile3, bins = np.histogram(beads3[:, axis], bins=bins)
+            profile4, bins = np.histogram(beads4[:, axis], bins=bins)
             res += 3*profile3/float(Nfiles)
             res += 6*profile4/float(Nfiles)
     elif subst == "sulfonic":
         for dumpfile in dumpfiles:
             A = read_outfile(dumpfile)
             beads = A[A[:, 0] == 3][:, 1:]
-            profile, nic = np.histogram(beads[:, axis], bins=bins)
+            profile, bins = np.histogram(beads[:, axis], bins=bins)
             res += profile/float(Nfiles)
     elif subst == "backbone":
         for dumpfile in dumpfiles:
@@ -71,26 +78,36 @@ def create_1d_profile2(dumpfiles, axis, subst, bins):
             beads1 = A[A[:, 0] == 1][:, 1:]   # bead A, 6 CF2 groups
             beads2 = A[A[:, 0] == 2][:, 1:]   # bead B, 5 CF2 groups
             beads3 = A[A[:, 0] == 3][:, 1:]   # bead B, 1 CF3 group
-            profile1, nic = np.histogram(beads1[:, axis], bins=bins)
-            profile2, nic = np.histogram(beads2[:, axis], bins=bins)
-            profile3, nic = np.histogram(beads3[:, axis], bins=bins)
+            profile1, bins = np.histogram(beads1[:, axis], bins=bins)
+            profile2, bins = np.histogram(beads2[:, axis], bins=bins)
+            profile3, bins = np.histogram(beads3[:, axis], bins=bins)
             res += 6*profile1/float(Nfiles)
             res += 5*profile2/float(Nfiles)
             res += profile3/float(Nfiles)
     return res, bins
 
 
-def create_2d_profile(dumpfiles, plane, nbins):
-    """TO DO:
+def create_2d_profile(dumpfiles, plane, nbins, D, H):
+    """2D histogram from given xyz files 
+    at certain depth D and slab height H.
+    SO FAR ONLY FOR WATER BEADS.
+    TO DO:
     * rethink the binning process
-    * modify water so that C beads are considered as well"""
-    Nfiles = len(dumpfiles)
+    """
+    Nf = len(dumpfiles)
     res = np.zeros((nbins, nbins))
+    axis = set([0, 1, 2]).difference(plane)
+    axis = list(axis)[0]    # choose perpendicular axis to the given plane
+    print "Perp. axis:", axis
     for dumpfile in dumpfiles:
         A = read_outfile(dumpfile)
-        A = A[A[:, 0] == 4][:, 1:]    # water beads, SHOULD CONSIDER C AS WELL?
-        profile, x, y = np.histogram2d(A[:, plane[0]], A[:, plane[1]], bins=nbins)
-        res += profile/float(Nfiles)
+        A = A[(A[:, axis+1] > D-H/2) & (A[:, axis+1] < D+H/2)] # +1 to account for bead names col
+        beads3 = A[A[:, 0] == 3][:, 1:]  # bead C, 3 H2O molecules
+        beads4 = A[A[:, 0] == 4][:, 1:]  # bead W, 6 H2O molecules
+        profile3, _, _ = np.histogram2d(beads3[:, plane[0]], beads3[:, plane[1]], bins=nbins)
+        profile4, _, _ = np.histogram2d(beads4[:, plane[0]], beads4[:, plane[1]], bins=nbins)
+        res += 3*profile3/float(Nf)
+        res += 6*profile4/float(Nf)
     return res
 
 
@@ -102,20 +119,16 @@ if __name__ == "__main__":
     planes = {"xy": (0, 1), "yz": (1, 2), "xz": (0, 2)}
     subst_map = {"water": "W", "sulfonic": "S", "backbone": "B"}
     dumpfiles = glob.glob(args["<files>"])
+    nbins = int(args["--bins"])
+    subst = args["--subst"]
+    
     if not dumpfiles:
         print "No files captured, aborting."
         sys.exit()
-    A = ll.read_xyzfile(dumpfiles[0])
-    if args["--bins"]:
-        nbins = int(args["<bins>"])
-    else:
-        nbins = set_num_bins(len(A))
-    subst = args["--subst"]
-    if subst not in ["water", "sulfonic", "backbone"]:
-        print "Choose substance from 'water', 'sulfonic', 'backbone'."
-        sys.exit()
-    print "Substance:", subst, "| Number of bins:", nbins, "| Box size:", L/rc
-    print dumpfiles
+
+    print "===== Water profile ====="
+    print "Substance:", subst, "| Bins:", nbins, "| Box size:", L/rc, \
+          "| xyz files:", len(dumpfiles)
     
     if args["1d"]:
         try:
@@ -124,10 +137,9 @@ if __name__ == "__main__":
             print "Choose axis from 'x', 'y', 'z'."
             sys.exit()
         bins = np.linspace(0, L, nbins)
-        profile, bins = create_1d_profile2(dumpfiles, axis, subst, bins)
+        profile, bins = create_1d_profile(dumpfiles, axis, subst, bins)
         bins = bins[:-1] + np.diff(bins)/2.0
 
-#        outname = "profile_1d.out"
         outname = "profile_1d_" + subst_map[subst] + "_" + str(len(dumpfiles)) + "f.out"
         np.savetxt(outname, zip(bins, profile))
         print "Array saved in", outname
@@ -144,14 +156,18 @@ if __name__ == "__main__":
         except KeyError:
             print "Choose plane from 'xy', 'yz', 'xz'."
             sys.exit()
-        profile = create_2d_profile(dumpfiles, plane, nbins)
+        D = float(args["--depth"])*rc
+        H = float(args["--thick"])*rc
+        print "Plotting 2D profile | Plane:", args["<plane>"], "| Depth:", D/rc,"| Thickness:", H/rc
+
+        profile = create_2d_profile(dumpfiles, plane, nbins, D, H)
         outname = "profile_2d.out"
         np.savetxt(outname, profile)
         print "Matrix saved in", outname
 
         plt.imshow(profile, cmap = cm.Greys_r)
         plt.axis("off")
-        plotname = "profile_2d.png"
+        plotname = "profile_2d_" + args["<plane>"] + "_" + str(len(dumpfiles)) + "f.png"
         plt.savefig(plotname)
         print "Plot saved in", plotname
 
