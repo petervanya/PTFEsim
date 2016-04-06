@@ -29,24 +29,19 @@ def dist_vec_HH(xyz):
 
 def dist_vec_HH2(xyz):
     """Consider PBCs by replicating the system 6x
-    GIVES WRONG RESULTS"""
+    GIVES WRONG RESULTS, UNFINISHED"""
     N = len(xyz)
-    imag_mat = np.vstack((np.eye(3), -np.eye(3)))
-    dist_mat = np.zeros((N, N, 6))
-    for i in range(6):
-        dist_mat[:, :, i] = np.sqrt(np.sum((xyz[None, :] - (xyz + imag_mat[i])[:, None])**2, 2))
-    dist_mat = np.max(dist_mat, axis=2)
-    print dist_mat.shape
+    dist_mat = xyz[None, :] - xyz[:, None]  # FINISH
     dist_vec = np.tril(dist_mat).reshape(-1)
     return dist_vec[dist_vec != 0.0]
 
 
 def dist_vec_naive(xyz, L):
-    """With PBCs"""
+    """With PBCs, WRONG"""
     N = xyz.shape[0]
     dist_vec = np.zeros(N*(N-1)/2)
     d_imag = np.zeros(6)
-    imag_mat = L * np.vstack((np.eye(3), -np.eye(3)))
+    imag_mat = L * np.vstack((np.zeros((1, 3)), np.eye(3), -np.eye(3)))
     cnt = 0
     for i in range(N):
         for j in range(i):
@@ -55,7 +50,26 @@ def dist_vec_naive(xyz, L):
             dist_vec[cnt] = np.min(d_imag)
             cnt += 1
     return dist_vec
-            
+
+
+def dist_vec_naive2(xyz, cell):
+    """With PBCs"""
+    N = xyz.shape[0]
+    inv_cell = np.linalg.inv(cell)
+    dist_vec = np.zeros(N*(N-1)/2)
+    d_imag = np.zeros(6)
+    imag_mat = L * np.vstack((np.zeros((1, 3)), np.eye(3), -np.eye(3)))
+    cnt = 0
+    for i in range(N):
+        for j in range(i):
+            dr = xyz[i] - xyz[j]
+            G = np.dot(inv_cell, dr)   # coords of dr in basis of the cell, range [-1,1]
+            G_n = G- np.round(G)       # clever bit
+            dr_n = np.dot(cell, G_n)
+            dist_vec[cnt] = np.linalg.norm(dr_n)
+            cnt += 1
+    return dist_vec
+
 
 if __name__ == "__main__":
     args = docopt(__doc__)
@@ -64,7 +78,8 @@ if __name__ == "__main__":
     Nbins = int(args["--bins"])
 
     xyz = np.random.rand(N, 3) * L
-    dist_vec = dist_vec_naive(xyz, L)
+    cell = L * np.eye(3)
+    dist_vec = dist_vec_naive2(xyz, cell)
 #    dist_vec = dist_vec_HH(xyz)
 #    dist_vec = dist_vec_HH2(xyz)
     
@@ -92,6 +107,7 @@ if __name__ == "__main__":
     # Correct normalisation, from researchgate.net/bla
     h = h * L**3/len(dist_vec) / (4 * np.pi * r**2 * dr)
     plt.plot(r, h)
-    plt.show()
+    plt.ylim([0.0, 2.0])
+    plt.savefig("rdf_test.png")
 
 
