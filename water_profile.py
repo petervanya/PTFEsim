@@ -9,18 +9,18 @@ Create 1D or 2D profile of water molecules in Nafion w or wo electrodes.
       in DPD units (1 = 8.14 AA)
 
 Arguments:
-    <files>         Dump files from LAMMPS
-    1d              1d profile of water
-    2d              2d profile of water
-    <axis>          Select the axis to profile along ("x", "y", "z")
-    <plane>         Select the plane to profile on ("xy", "yz", "xz")
+    <files>             Dump files from LAMMPS
+    1d                  1d profile of water
+    2d                  2d profile of water
+    <axis>              Select the axis to profile along ("x", "y", "z")
+    <plane>             Select the plane to profile on ("xy", "yz", "xz")
 
 Options:
-    --depth <d>     Depth at which to profile the plane in DPD units [default: 20]
-    --thick <h>     Thickness of the profile in DPD units [default: 1]
-    --boxsize <L>   Box size [default: 40]
-    --subst <s>     Requested substance: "water", "sulfonic", "backbone" [default: water]
-    --bins <bins>   Number of bins for the histogram [default: 150]
+    --subst <s>         Requested substance: "water", "sulfonic", "backbone" [default: water]
+    --depth <d>         Depth at which to profile the plane in DPD units [default: 20]
+    --thick <h>         Thickness of the profile in DPD units [default: 1]
+    --boxsize <L>       Box size [default: 40]
+    --bins <bins>       Number of bins for the histogram [default: 150]
 
 pv278@cam.ac.uk, 03/01/15
 """
@@ -28,7 +28,8 @@ import numpy as np
 from math import log, sqrt
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-import glob, sys
+import glob
+import sys
 from docopt import docopt
 import lmp_lib as ll
 
@@ -56,7 +57,6 @@ def create_1d_profile(dumpfiles, axis, subst, bins):
     """NEW function with pre-set bins and fixed water plot"""
     Nfiles = len(dumpfiles)
     res = np.zeros(len(bins)-1)
-#    bins = 149   # TEMP SOL
     if subst == "water":
         for dumpfile in dumpfiles:
             A = read_outfile(dumpfile)
@@ -91,8 +91,6 @@ def create_2d_profile(dumpfiles, plane, nbins, D, H):
     """2D histogram from given xyz files 
     at certain depth D and slab height H.
     SO FAR ONLY FOR WATER BEADS.
-    TO DO:
-    * rethink the binning process
     """
     Nf = len(dumpfiles)
     res = np.zeros((nbins, nbins))
@@ -143,12 +141,6 @@ if __name__ == "__main__":
         outname = "profile_1d_" + subst_map[subst] + "_" + str(len(dumpfiles)) + "f.out"
         np.savetxt(outname, zip(bins, profile))
         print "Array saved in", outname
-
-#        plt.plot(bins, profile)
-#        plt.xlim([0, bins[-1]])
-#        plotname = "profile_1d.png"
-#        plt.savefig(plotname)
-#        print "Plot saved in", plotname
 
     elif args["2d"]:
         try:
