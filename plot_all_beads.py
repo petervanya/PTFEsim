@@ -21,12 +21,12 @@ matplotlib.rcParams.update({'font.size': 16})
 fileW = args["<fileW>"]
 fileS = args["<fileS>"]
 fileB = args["<fileB>"]
-lw = 2.0    # linewidth
+lw = 3.0    # linewidth
 
 A = np.loadtxt(fileB)
 A[:, 0] *= 1e9
 A[:, 1] /= sum(A[:, 1])
-plt.plot(A[:, 0], A[:, 1], "red", label="backbone", linewidth=lw+1)
+plt.plot(A[:, 0], A[:, 1], "red", label="backbone", linewidth=lw)
 
 #A = np.loadtxt(fileS)
 #A[:, 0] *= 1e9
@@ -36,15 +36,16 @@ plt.plot(A[:, 0], A[:, 1], "red", label="backbone", linewidth=lw+1)
 A = np.loadtxt(fileW)
 A[:, 0] *= 1e9
 A[:, 1] /= sum(A[:, 1])
-plt.plot(A[:, 0], A[:, 1], "blue", label="water", linewidth=lw+1)
+plt.plot(A[:, 0], A[:, 1], "blue", label="water", linewidth=lw)
 
 plt.xlabel("$x$ (nm)", fontsize=20)
 plt.xlim([0.5, 32.0])
-plt.yticks([])
+#plt.yticks([])
 plt.legend(loc="best")
 
 if args["--title"]:
    plt.title(args["<ttl>"])
 plt.savefig(args["<savefile>"])
 print "Plot saved in", args["<savefile>"]
+
 
