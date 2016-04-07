@@ -24,28 +24,28 @@ subroutine pair_dist_arr(xyz, n, a)
 end subroutine
 
 
-subroutine pair_dist_arr_2mat(xyz, n, xyz2, n2, a)
+subroutine pair_dist_arr_2mat(xyz1, n1, xyz2, n2, a)
 ! generate pairs of mutual distances for two xyz matrices
 ! 09/01/16
-    integer(kind=8), intent(in) :: n
-    integer(kind=8), intent(in) :: n2
-    real(dp), intent(in) :: xyz(n, 3)
-    real(dp), intent(in) :: xyz2(n2, 3)
-    real(dp), intent(out) :: a(n*n2)
+    integer(kind=8), intent(in) :: n1, n2
+    real(dp), intent(in) :: xyz1(n1, 3), xyz2(n2, 3)
+    real(dp), intent(out) :: a(n1*n2)
     integer(kind=8) :: i, j, cnt
 
     cnt = 1
-    do i = 1, n
+    do i = 1, n1
         do j = 1, n2
-            a(cnt) = sqrt(sum((xyz(i, :) - xyz2(j, :))**2))
+            a(cnt) = sqrt(sum((xyz1(i, :) - xyz2(j, :))**2))
             cnt = cnt + 1
         enddo
     enddo  
 end subroutine 
 
 
-subroutine pair_dist_arr_cut(xyz, n, rc, l, cell, a, n_a)
+subroutine dist_vec_cut(xyz, n, rc, l, cell, a, n_a)
 ! Generate pairs of distances from an xyz matrix less than cutoff rc.
+! Must supply size of pair distance vector n_a externally from Python!
+! Internally impossible to set if using f2py.
 !
 ! Arguments:
 ! * xyz: xyz matrix of size (n, 3)
@@ -82,6 +82,48 @@ subroutine pair_dist_arr_cut(xyz, n, rc, l, cell, a, n_a)
                 a(cnt) = dist
                 cnt = cnt + 1
 !                if (mod(cnt, 1000) == 0) print *, cnt
+            endif
+        enddo
+    enddo
+end subroutine
+
+
+subroutine dist_vec_cut_2mat(xyz1, n1, xyz2, n2, rc, l, cell, a, n_a)
+! Generate pairs of distances from an xyz matrix less than cutoff rc.
+!
+! Arguments:
+! * xyz1, xyz2: xyz matrices of size (n, 3)
+! * l: box size
+! * rc: cutoff
+! * cell: (3, 3) matrix of cell vectors to check for nearest images
+!
+! Output:
+! * a: distance vector of size (n_a)
+! 05/04/16
+    integer(kind=8), intent(in) :: n1, n2
+    real(dp), intent(in) :: xyz1(n1, 3), xyz2(n2, 3)
+    real(dp), intent(in) :: rc
+    real(dp), intent(in) :: l
+    real(dp), intent(in) :: cell(3, 3)
+    integer(kind=8), intent(in) :: n_a
+    real(dp), intent(out) :: a(n_a)
+    real(dp) :: inv_cell(3, 3)
+    real(dp) :: g(3), dr(3)
+    integer(kind=8) :: i, j, cnt
+    real(dp) :: dist
+
+    inv_cell = cell/l**2   ! valid only for cubes of side l
+ 
+    cnt = 1
+    do i = 1, n1
+        do j = i+1, n2
+            dr = xyz1(i, :) - xyz2(j, :)
+            g = mat_vec_mul(inv_cell, dr)
+            g = g - nint(g)
+            dist = sqrt(sum( mat_vec_mul(cell, g)**2 ))
+            if (dist < rc) then
+                a(cnt) = dist
+                cnt = cnt + 1
             endif
         enddo
     enddo
