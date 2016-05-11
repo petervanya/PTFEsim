@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Usage:
-    parse_ms.py <infile>
+    parse_ms.py <infile> [--boxsize <L>]
 
 Parse a Materials Studio xcf file and create two files, one with atoms and position, the other with bonds.
+
+Options:
+    --boxsize <L>       Rescale w.r.t. the box size [default: 40]
 
 pv278@cam.ac.uk, 10/05/16
 """
@@ -13,6 +16,8 @@ import lmp_lib as ll
 
 def parse_beads(xmlstring, bead_dict):
     """XML string has a form of lines,
+    User ID -- numbering of beads starting from 1 rising by 1
+    Bead ID -- a general number of a XML element, mixed with Bond ID
     return:
     * xyz matrix (N, 3)
     * bead types vector (N, 1)
@@ -28,9 +33,9 @@ def parse_beads(xmlstring, bead_dict):
     bead_IDs = np.zeros(N, dtype=int)
     user_IDs = np.zeros(N, dtype=int)
     mol_IDs = np.zeros(N, dtype=int)
-    cnt = 0
     Nb = {}
 
+    cnt = 0
     for b in bead_dict.keys():
         E = [line for line in xmlstring if "<Bead ID" in line and "ForcefieldType=\"%s\"" % b in line]
         Nb[b] = len(E)
@@ -57,16 +62,53 @@ def parse_beads(xmlstring, bead_dict):
     return xyz_mat, bead_types, bead_IDs, user_IDs, mol_IDs
 
 
+def parse_beads2(xmlstring, bead_dict):
+    """Improved function to parse beads linearly, no by bead type"""
+    N = len([line for line in xmlstring if "Bead ID=" in line])
+    xyz_mat = np.zeros((N, 3), dtype=float)
+    bead_IDs = np.zeros(N, dtype=int)
+    bead_types = np.zeros(N, dtype=int)
+    user_IDs = np.zeros(N, dtype=int)
+    mol_IDs = np.zeros(N, dtype=int)
+    Nb = {"A": 0, "B11": 0, "C": 0, "W": 0, "E": 0}
+
+    i = 0
+    good = [line for line in xmlstring if "<Bead ID" in line]
+    for line in good:
+        key = [field for field in line.split() if "XYZ=" in field][0]
+        bead_ID = [field for field in line.split() if "ID=" in field][0]
+        bead_type = [field for field in line.split() if "ForcefieldType=" in field][0]
+        user_ID = [field for field in line.split() if "UserID=" in field][0]
+        mol_ID = [field for field in line.split() if "Parent=" in field][0]
+        key = np.array(key[5:-1].split(",")).astype(float)
+
+        xyz_mat[i] = key
+        bead_IDs[i] = int(bead_ID[4:-1])
+        bead_type = bead_type.rstrip(">")
+        bead_num = bead_dict[bead_type[16:-1]]
+        bead_types[i] = bead_num
+        user_IDs[i] = int(user_ID[8:-1])
+        mol_IDs[i] = int(mol_ID[8:-1])
+        Nb[bead_type[16:-1]] += 1
+        i += 1
+
+    for k, v in Nb.items():
+        print("Number of %s beads: %i" % (k, v))
+    return xyz_mat, bead_types, bead_IDs, user_IDs, mol_IDs
+
+
+
 def parse_bonds(xmlstring):
     """Extract bonds from a XML string in the form of lines,
-    return (N, 3) matrix with columns:
-    * bond ID
+    return (N, 4) matrix with columns:
+    * bond ID, starting from 1 and rising by 1
+    * bond type = 1
     * bead 1 ID
     * bead 2 ID
     """
     # <BeadConnector ID="60670" Mapping="60486" Parent="6" Connects="60667,60669"/>
     N = len([line for line in xmlstring if "<BeadConnector" in line])
-    parsed_mat = np.zeros((N, 3), dtype=int)
+    parsed_mat = np.zeros((N, 4), dtype=int)
     cnt = 0
 
     good = [line for line in xmlstring if "<BeadConnector" in line]
@@ -75,11 +117,23 @@ def parse_bonds(xmlstring):
         beads = [field for field in line.split() if "Connects=" in field][0]
         beads = np.array(beads[10:-3].split(",")).astype(int)
 
-        parsed_mat[cnt, 0] = int(bond_id[4:-1])
-        parsed_mat[cnt, 1:] = beads
+        parsed_mat[cnt, 0] = cnt + 1
+        parsed_mat[cnt, 1] = 1
+        parsed_mat[cnt, 2:] = beads
         cnt += 1
 
     return parsed_mat
+
+
+def save_atoms(fname, user_IDs, mol_IDs, bead_types, xyz_mat):
+    """Ad hoc function to all information on atoms into file"""
+    N = len(user_IDs)
+    with open(fname, "w") as f:
+         for i in range(N):
+             f.write("%i\t%i\t%i\t%.6e\t%.6e\t%.6e\n" % \
+                    (user_IDs[i], mol_IDs[i], bead_types[i],\
+                     xyz_mat[i, 0], xyz_mat[i, 1], xyz_mat[i, 2]))
+    print("xyz matrix was saved into", fname)
 
 
 if __name__ == "__main__":
@@ -88,28 +142,23 @@ if __name__ == "__main__":
     bead_dict = {"A": 1, "B11": 2, "C": 3, "W": 4, "G": 5}
 
     xmlstring = open(infile, "r").readlines()
-    print("File name: %s, length: %i" % (infile, len(xmlstring)))
+    print("File: %s | Length: %i" % (infile, len(xmlstring)))
     
-    print("Parsing data...")
-    xyz_mat, bead_types, bead_IDs, user_IDs, mol_IDs = parse_beads(xmlstring, bead_dict)
+    print("Parsing atoms...")
+    xyz_mat, bead_types, bead_IDs, user_IDs, mol_IDs = parse_beads2(xmlstring, bead_dict)
+    xyz_mat *= float(args["--boxsize"]) * 8.14e-10       # rescale to DPD units
+    print("Parsing bonds...")
     bond_mat = parse_bonds(xmlstring)
     N = xyz_mat.shape[0]
 
     print("Cleaning data...")
-    # Molecule IDs to start with 1
-#    mol_IDs -= np.min(mol_IDs) - 1
-
+    mol_IDs += -np.min(mol_IDs) + 1            # Molecule IDs to start with 1
+#    for i in user_IDs:                       # replace weird user IDs by order 1..N
+#        np.place(bond_mat, bond_mat==bead_IDs[i-1], i)
 
     print("Saving data...")
     fname_beads = "nafion_ms.xyz"
-#    ll.save_xyzfile(fname_beads, np.hstack((np.matrix(bead_types).T, np.matrix(mol_IDs).T, xyz_mat)))
-    with open(fname_beads, "w") as f:
-         f.write("# bead_types, mol_IDs, xyz_mat\n")
-         for i in range(N):
-             f.write("%i   %i   %i   %i   %.6f   %.6f   %.6f\n" % \
-                    (bead_types[i], bead_IDs[i], user_IDs[i], mol_IDs[i],\
-                     xyz_mat[i, 0], xyz_mat[i, 1], xyz_mat[i, 2]))
-    print("xyz matrix was saved into", fname_beads)
+    save_atoms(fname_beads, user_IDs, mol_IDs, bead_types, xyz_mat)
 
     fname_bonds = "nafion_ms.bonds"
     np.savetxt(fname_bonds, bond_mat, fmt="%i")
