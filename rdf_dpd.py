@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Usage:
-    rdf_water.py (--bead <b> | water) <fnames> [--bins <nbins>] [--binalg <b>]
+    rdf_dpd.py (--bead <b> | water) <fnames> [--bins <nbins>] [--binalg <b>]
 
 Read LAMMPS data files using regex and compute radial distribution function
 for any DPD beads or separetely water beads (that could be found in beads C and W):
