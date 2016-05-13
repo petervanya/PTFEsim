@@ -4,6 +4,8 @@ A collection of functions regarding Nafion DPD simulation
 
 pv278@cam.ac.uk, 13/05/16
 """
+import sys, yaml
+
 elem_wts = yaml.load(open(sys.path[0]+"/atomic_weights.yaml").read())
 AMU = 1.66e-27
 
