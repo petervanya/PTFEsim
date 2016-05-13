@@ -45,7 +45,7 @@ def bond_coeffs2str(k_ij):
     """Print bond coefficients into string.
     Structure:
     * key: 1..4
-    * value [k_ij, r0]
+    * value [k_ij, r0]
     """
     s = "Bond Coeffs\n\n"
     for k, v in k_ij.iteritems():
