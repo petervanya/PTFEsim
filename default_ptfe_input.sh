@@ -12,6 +12,7 @@ box-size:       40           # DPD units, 1 = 8.14 AA
 temperature:    300          # K
 PTFE:           Nafion       # defines beads
 topology:       (A 3, [B 1], [C 1])15
+num-monomers:   15
 water-uptake:   9            # water uptake, num H2O/SO3H
 gamma:          4.5          # DPD drag coefficient
 
