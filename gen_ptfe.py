@@ -1,36 +1,34 @@
 #!/usr/bin/env python
 """Usage:
-    gen_ptfe.py <input> [--el <el>] [--parsetopo] [--expt-rho] 
+    gen_ptfe.py <input> [--el <el>] [--parsetopo]
                         [--save <fname>] [--xyz <xyz>] [--units <u>]
 
 Generate LAMMPS data file from input.yaml file.
-* Nbm beads in a monomer
-* Nmc monomers in a chain
+* Nbm: beads in a monomer
+* Nmc: monomers in a chain
 * Number of chains (Nc) to fit the density from the papers (dry or wet) or DPD rho=3
 * Add water beads
-* Optionally, add electrodes of carbon black and catalyst layer.
+* Option: add electrodes of carbon black and catalyst layer.
 
 Arguments:
     <input>                  Input yaml file
 
 Options:
     --parsetopo              Get bead topology from the string in input.yaml, else use default (PTFE)
-    --expt-rho               Use experimental density value instead of DPD (rho=3)
     --el <el>                Add electrodes: "carbon", "quartz" or (amorphous) "silica"
     --save <fname>           Save the data file [default: temp.data]
     --xyz <xyz>              Print as xyz file for VMD view
-    --units <u>              SI or LJ
+    --units <u>              SI or LJ [default: LJ]
 
 pv278@cam.ac.uk, 09/11/15
 
 TODO
 ====
-* remove expt-rho
-* fix masses
 """
 import numpy as np
 from math import *
-import os, sys, yaml
+import os, sys
+import yaml
 from docopt import docopt
 import parse_topo as pt
 from nafion_lib import nafion_bead_wt, num_poly_chains
@@ -73,7 +71,7 @@ def grow_polymer(beads_in_m, Nc, Nmc, L, Lcl, mu, sigma):
     return xyz
 
 
-def grow_one_chain2(beads_in_m, Nmc, L, Lcl, mol_id=1, mu=rc, sigma=rc/10):
+def grow_one_chain2(beads_in_m, Nmc, L, Lcl, mol_id=1, mu=1.0, sigma=0.1):
     """Return xyz matrix of one polymer chain.
     Return (Nbc*len(beads_in_m), 5) xyz matrix with columns:
     * molecule/chain ID
@@ -138,7 +136,7 @@ def bonds_mat2(raw_topo, Nc):
     return bonds
 
 
-def gen_pair_coeffs(bead_types, atoms_yaml, gamma, rc, units="LJ"):
+def gen_pair_coeffs(bead_types, atoms_yaml, gamma, units="LJ"):
     """
     Generate atomic params a_ij for all possible combinations 
     given number of atom types. Read custom bonds from input.yaml file
@@ -153,15 +151,17 @@ def gen_pair_coeffs(bead_types, atoms_yaml, gamma, rc, units="LJ"):
             lkey = "%s %s" % (num2coeff[j], num2coeff[i])
             if lkey in atoms_yaml.keys() or lkey[::-1] in atoms_yaml.keys():
                 try:
-                    a_ij[key] = [(a_ii + 3.27*atoms_yaml[lkey]), gamma, rc]
+                    a_ij[key] = [(a_ii + 3.27*atoms_yaml[lkey]), gamma, 1.0]
                 except KeyError: # "B A" -> "A B"
-                    a_ij[key] = [(a_ii + 3.27*atoms_yaml[lkey[::-1]]), gamma, rc]
+                    a_ij[key] = [(a_ii + 3.27*atoms_yaml[lkey[::-1]]), gamma, 1.0]
             else:
-                a_ij[key] = [a_ii, gamma, rc]
+                a_ij[key] = [a_ii, gamma, 1.0]
 
     if units == "SI":
         for k in a_ij.keys():
             a_ij[k][0] *= kB*T/rc
+            a_ij[k][1] *= m0 / (sqrt(m0 * rc**2/(kB*T)))
+            a_ij[k][2] *= rc
     return a_ij
 
 
@@ -184,7 +184,8 @@ def gen_bond_coeffs(bead_types, bonds_yaml, r0, units="LJ"):
     
     if units == "SI":
         for k in k_ij.keys():
-            k_ij[k] *= kB*T/(rc**2)
+            k_ij[k][0] *= kB*T/(rc**2)
+            k_ij[k][1] *= rc
     return k_ij
 
 
@@ -251,6 +252,7 @@ def get_platinum(NPt, L, Lcl, count=1):
 # =====
 if __name__ == "__main__":
     args = docopt(__doc__)
+#    print args
     try:
         data = yaml.load(open(args["<input>"]))
     except IOError:
@@ -267,17 +269,15 @@ if __name__ == "__main__":
 
     if units == "SI":
         T = data["temperature"]
-        L *= rc
         tau = sqrt(m0 * rc**2/(kB*T))
-        gamma *= m0/tau
-        r0 *= rc
+#        gamma *= m0/tau
 
     if lmbda < 3:
         print "Water uptake should be more than 3, aborting."
         sys.exit()
 
     print "=== Creating LAMMPS input file for Nafion ==="
-    print "Box size:", L,"| Temperature:", T,"| Tau:", tau
+    print "Box size:", L,"(DPD) | Temperature:", T,"| Tau:", tau
 
     # ===== set electrode parameters
     if args["--el"]:
@@ -286,28 +286,26 @@ if __name__ == "__main__":
             print "Choose electrodes from 'carbon', 'quatrz', 'silica' (amorphous). Aborting."
             sys.exit()
         Lcl = data["electrodes"]["width"]  # catalyst layer width
-        print "Electrodes on | CL width on both sides:", Lcl, "| Material:", elmat
-        if units == "SI":
-            Lcl *= rc
-
         if Lcl > L/2:
             print "Catalyst layer thicker than membrane, aborting."
             sys.exit()
+
         Pt_amount = data["electrodes"]["Pt-amount"]
         Vcl = L**2 * 2*Lcl
 
+        print "Electrodes on | CL width on both sides:", Lcl, "(DPD) | Material:", elmat
+
+        NELb = rho_DPD * int(Vcl)         # not (4*pi/3*rc**3) ) must be cubes
+        NPt = int(Pt_amount * NELb)
+
         if elmat == "carbon":
             Natoms = NA * rho_el[elmat] * Vcl/(elem_wts["C"]*1e-3)
-            NELb = rho_DPD * int(Vcl/ rc**3)  # not (4*pi/3*rc**3) ) must be cubes
         elif elmat == "quartz":
             Natoms = NA * rho_el[elmat] * Vcl/((elem_wts["Si"] + 2*elem_wts["O"])*1e-3)
-            NELb = rho_DPD * int(Vcl/ rc**3)
         elif elmat == "silica":
             Natoms = NA * rho_el[elmat] * Vcl/((elem_wts["Si"] + 2*elem_wts["O"])*1e-3)
-            NELb = rho_DPD * int(Vcl/ rc**3)
-        print "CL:", int(Natoms/NELb), "electrode atoms per bead at density", rho_el[elmat]
-        NPt = int(Pt_amount * NELb)
-        print NELb, "electrode beads,", NPt, "platinum beads"
+        print "CL:", int(Natoms/NELb*rc**3), "electrode atoms per bead at density", rho_el[elmat]
+        print "Electrode beads: %i | Platinum beads: %i" % (NELb, NPt)
     else:
         Lcl = 0.0
         print "Electrodes off."
@@ -320,58 +318,55 @@ if __name__ == "__main__":
         Nbm = len(bead_list)
         bead_dict = pt.gen_bead_dict(raw_topo)      # dict of beads in one monomer
         bead_types = sorted("".join(bead_dict.keys()) + "W")
-        Npbt = len(bead_types)
-        coeff2num = dict((coeff, num) for num, coeff in zip(range(1, Npbt+1), bead_types))
+        Nbt = len(bead_types)
+        coeff2num = dict((coeff, num) for num, coeff in zip(range(1, Nbt+1), bead_types))
         beads = []
         [[beads.append(coeff2num[k]) for i in range(v)] for k, v in sorted(bead_dict.items())]
     else:
         Nbm, Nmc = 5, 15
         bead_types = "ABCW"
         beads = [1, 1, 1, 2, 3]
-        Npbt = len(bead_types)
+        Nbt = len(bead_types)
     print "Nmc: %i, Nbm: %i" % (Nmc, Nbm)
 
     # ===== setting numbers
-    if args["--expt-rho"]:
-        Nc = int(round(num_poly_chains(rho_wet, L*L*(L-2*Lcl), Nmc, arg="wet")))
-        Nw = (Nc*Nmc*(lmbda-3))/6
-        N = Nc*Nmc*Nbm + Nw
-    else:
-        N = int(rho_DPD * L**2*(L-2*Lcl)/ rc**3) # must be cubes
-        Nc, Nw = calc_nc_nw(N, Nmc, Nbm, lmbda)
+    N = int(rho_DPD * (L**3 - Vcl))            # must be cubes
+    Nc, Nw = calc_nc_nw(N, Nmc, Nbm, lmbda)
     print Nc, "polymer chains created"
 
     Nbc = Nbm*Nmc              
     Nb = Nbc*Nc                
-    mu, sigma = rc, rc/10 # 10 arbitrary
+    mu, sigma = 1.0, 1.0/10   # arbitrary sigma for generating chains
 
     # ===== beads
     poly_xyz = grow_polymer(beads, Nc, Nmc, L, Lcl, mu, sigma)
     wb_xyz = gen_water_beads(Nw, L, Lcl, count=Nc+1)
     if args["--el"]:
         el_xyz = gen_electrodes(NELb, L, Lcl, count=Nc+Nw+1)
-        else:
-            pt_xyz = get_platinum(NPt, L, Lcl, count=Nc+Nw+NELb+1)
+        pt_xyz = get_platinum(NPt, L, Lcl, count=Nc+Nw+NELb+1)
         xyz = np.vstack((poly_xyz, wb_xyz, el_xyz, pt_xyz))
-        Nbt = Npbt + 2
         bead_types += "EP"
+        Nbt = len(bead_types)
     else:
         xyz = np.vstack((poly_xyz, wb_xyz))
-        Nbt = Npbt
+    print len(xyz), "beads created, density:", float(len(xyz)) / L**3
+
     masses = dict( (i, 1.0) for i in range(1, Nbt+1) )  # all beads weigh the same
+
     if units == "SI":
         masses = dict( (i, m0) for i in range(1, Nbt+1) )
-    xyz_str = atoms2str(xyz)
-    print len(xyz), "beads created, density:", len(xyz) / (L/rc)**3
+        xyz *= rc
+        L *= rc
+    xyz_str = ll.atoms2str(xyz)
 
     # ===== bonds
     bonds = bonds_mat2(data["topology"], Nc)
-    bonds_str = bonds2str(bonds)
+    bonds_str = ll.bonds2str(bonds)
     print len(bonds), "bonds created"
 
     # ===== pair and bond parameters
-    a_ij = gen_pair_coeffs(bead_types, data["chi-params"], gamma, rc)
-    k_ij = gen_bond_coeffs(bead_types, data["bond-coeffs"], r0)
+    a_ij = gen_pair_coeffs(bead_types, data["chi-params"], gamma, units)
+    k_ij = gen_bond_coeffs(bead_types, data["bond-coeffs"], r0, units)
 
     # ===== putting it together
     final_string = ll.header2str(len(xyz), len(bonds), Nbt, len(k_ij), L) + \
