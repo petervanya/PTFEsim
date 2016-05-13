@@ -42,7 +42,11 @@ def pair_dpd_coeffs2str(coeffs):
 
 
 def bond_coeffs2str(k_ij):
-    """Save bond coefficients into a str"""
+    """Print bond coefficients into string.
+    Structure:
+    * key: 1..4
+    * value [k_ij, r0]
+    """
     s = "Bond Coeffs\n\n"
     for k, v in k_ij.iteritems():
         s += "%s %s %s\n" % (str(k), "%e" % v[0], "%e" % v[1])
