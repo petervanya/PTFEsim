@@ -60,12 +60,12 @@ def create_1d_profile(dumpfiles, axis, subst, bins):
     if subst == "water":
         for dumpfile in dumpfiles:
             A = read_outfile(dumpfile)
-            beads3 = A[A[:, 0] == 3][:, 1:]   # bead C, 3 H2O molecules
-            beads4 = A[A[:, 0] == 4][:, 1:]   # bead W, 6 H2O molecules
-            profile3, bins = np.histogram(beads3[:, axis], bins=bins)
-            profile4, bins = np.histogram(beads4[:, axis], bins=bins)
-            res += 3*profile3/float(Nfiles)
-            res += 6*profile4/float(Nfiles)
+            beadsC = A[A[:, 0] == 3][:, 1:]   # bead C, 3 H2O molecules
+            beadsW = A[A[:, 0] == 4][:, 1:]   # bead W, 6 H2O molecules
+            profileC, bins = np.histogram(beadsC[:, axis], bins=bins)
+            profileW, bins = np.histogram(beadsW[:, axis], bins=bins)
+#            res += 3*profileC/float(Nfiles)
+            res += 6*profileW/float(Nfiles)
     elif subst == "sulfonic":
         for dumpfile in dumpfiles:
             A = read_outfile(dumpfile)
@@ -112,7 +112,7 @@ def create_2d_profile(dumpfiles, plane, nbins, D, H):
 if __name__ == "__main__":
     args = docopt(__doc__)
 #    print args
-    L = float(args["--boxsize"])*rc
+    L = float(args["--boxsize"])#*rc
     axes = {"x": 0, "y": 1, "z": 2}
     planes = {"xy": (0, 1), "yz": (1, 2), "xz": (0, 2)}
     subst_map = {"water": "W", "sulfonic": "S", "backbone": "B"}
