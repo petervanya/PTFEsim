@@ -336,7 +336,7 @@ if __name__ == "__main__":
 
     Nbc = Nbm*Nmc              
     Nb = Nbc*Nc                
-    mu, sigma = 1.0, 1.0/10   # arbitrary sigma for generating chains
+    mu, sigma = 1.0, 0.01   # arbitrary sigma for generating chains
 
     # ===== beads
     poly_xyz = grow_polymer(beads, Nc, Nmc, L, Lcl, mu, sigma)
