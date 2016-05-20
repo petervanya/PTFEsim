@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 """Usage:
     rdf_cut.py <files> [--rc <rc>] [--boxsize <L>] [--subst <s>] [--bins <nbins>] 
 
@@ -43,7 +43,7 @@ def compute_rdf_water(outfile, rc, cell, bins):
     dr = bins[1] - bins[0]
     L = cell[0, 0]
 
-    nn = int(2*NW**2 * (rc/L)**3 * 1.1)
+    nn = int(2*NW**2 * (rc/L)**3 * 1.3)  # bulgarian const
     print "W beads, memory size:", nn*8/(1024.0)**3, "GB"
     d_W = f_rdf.dist_vec_cut(xyz_W, rc, L, cell, nn)  # rdf for W beads
     d_W = d_W[d_W != 0.0]
@@ -52,7 +52,7 @@ def compute_rdf_water(outfile, rc, cell, bins):
     del d_W
     rdf_W = rdf_W /(4*np.pi*r**2 * dr) * L**3 / (NW*(NW-1)/2)
 
-    nn = int(2*NC**2 * (rc/L)**3 * 1.1)
+    nn = int(2*NC**2 * (rc/L)**3 * 1.3)
     print "C beads, memory size:", nn*8/(1024.0)**3, "GB"
     d_C = f_rdf.dist_vec_cut(xyz_C, rc, L, cell, nn)  # rdf for C beads
     d_C = d_C[d_C != 0.0]
@@ -61,7 +61,7 @@ def compute_rdf_water(outfile, rc, cell, bins):
     del d_C
     rdf_C = rdf_C /(4*np.pi*r**2 * dr) * L**3 / (NC*(NC-1)/2)
 
-    nn = int(2*NW**2 * (rc/L)**3 * 1.1)
+    nn = int(2*NW**2 * (rc/L)**3 * 1.3)
     print "C and W beads, memory size:", nn*8/(1024.0)**3, "GB"
     d_CW = f_rdf.dist_vec_cut_2mat(xyz_C, xyz_W, rc, L, cell, nn)  # rdf for combined C and W beads
     d_CW = d_CW[d_CW != 0.0]
