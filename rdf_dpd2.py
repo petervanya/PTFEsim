@@ -2,11 +2,12 @@
 """Usage:
     rdf_cut.py <files> [--rc <rc>] [--boxsize <L>] [--subst <s>] [--bins <nbins>] 
 
-Read LAMMPS data files using regex and compute radial distribution function
-for any DPD beads or separetely water beads (that could be found in beads C and W):
+Read LAMMPS data files and compute radial distribution function
+for any DPD bead type or water molecules (in beads C and W):
 * C: 3 molecules (SO3H + 3H2O) (bead 3)
 * W: 6 molecules (bead 4)
-Specify cutoff to consider only pairs up to this distance
+Specify cutoff to consider only pairs up to this distance.
+Correct implementation of PBCs.
 
 Arguments:
     <files>            Match the required xyz files (regex)

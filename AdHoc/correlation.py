@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Calculate correlation of two 1D profiles.
+[AD HOC] Calculate correlation of two 1D profiles.
 For slabs profiles, input the ratio Lm/L capturing 
 the width of the membrane Lm to the total box width L.
 

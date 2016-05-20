@@ -2,7 +2,7 @@
 """Usage:
    si2aa.py <infile>
 
-Modify xyz files by converting metres to Angstroms
+[AD HOC] Modify xyz files by converting metres to Angstroms
 to conform with VMD standards.
 
 pv278@cam.ac.uk, 11/01/16

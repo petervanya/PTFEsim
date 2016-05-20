@@ -8,9 +8,9 @@
 *.out
 *.log
 *.data
-*.in
 *.lammps
 input.yaml
 *.xyz
 Dump/
+Old/
 TODO.md
