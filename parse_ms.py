@@ -16,15 +16,15 @@ import lmp_lib as ll
 
 def parse_beads(xmlstring, bead_dict):
     """XML string has a form of lines,
-    User ID -- numbering of beads starting from 1 rising by 1
-    Bead ID -- a general number of a XML element, mixed with Bond ID
+    User ID: human-readable, numbering of beads starting from 1 rising by 1
+    Bead ID: XML-readable, general number of a XML element, mixed with Bond ID
     return:
     * xyz matrix (N, 3)
     * bead types vector (N, 1)
     * bead IDs vector (N, 1)
     * molecule IDs, vector (N, 1)
     """
-    # Examples of lines:
+    # Examples of XML bead lines:
     # <Bead ID="60669" Mapping="60486" Parent="6" UserID="93" XYZ="0.335008132054088,0.56406164179294,0.35715898635349"
     #    Connections="60670,60672,60746" ForcefieldType="A" BeadType="388551"/>
     # <Molecule ID="6" Mapping="60486" Parent="2" Children="ci(149):149+60636" Name="Nafion_EW1244_MW11040"/>
@@ -58,7 +58,6 @@ def parse_beads(xmlstring, bead_dict):
     for b in bead_dict.keys():
         bead_types += [bead_dict[b]]*Nb[b]
     bead_types = np.array(bead_types)
-#    parsed_mat = np.hstack((bead_types, xyz_mat))
     return xyz_mat, bead_types, bead_IDs, user_IDs, mol_IDs
 
 
@@ -70,7 +69,7 @@ def parse_beads2(xmlstring, bead_dict):
     bead_types = np.zeros(N, dtype=int)
     user_IDs = np.zeros(N, dtype=int)
     mol_IDs = np.zeros(N, dtype=int)
-    Nb = {"A": 0, "B11": 0, "C": 0, "W": 0, "E": 0}
+    Nb = {"A": 0, "B11": 0, "C": 0, "W": 0, "G": 0}
 
     i = 0
     good = [line for line in xmlstring if "<Bead ID" in line]
@@ -106,6 +105,7 @@ def parse_bonds(xmlstring):
     * bead 1 ID
     * bead 2 ID
     """
+    # Example of a XML bond line:
     # <BeadConnector ID="60670" Mapping="60486" Parent="6" Connects="60667,60669"/>
     N = len([line for line in xmlstring if "<BeadConnector" in line])
     parsed_mat = np.zeros((N, 4), dtype=int)
@@ -149,14 +149,16 @@ if __name__ == "__main__":
     xyz_mat *= float(args["--boxsize"]) * 8.14e-10       # rescale to DPD units
     print("Parsing bonds...")
     bond_mat = parse_bonds(xmlstring)
+
     N = xyz_mat.shape[0]
+    NB = bond_mat.shape[0]
+    print("Number of atoms: %i | Number of bonds: %i" % (N, NB))
 
     print("Cleaning data...")
     mol_IDs += -np.min(mol_IDs) + 1            # Molecule IDs to start with 1
-#    for i in user_IDs:                       # replace weird user IDs by order 1..N
-#        np.place(bond_mat, bond_mat==bead_IDs[i-1], i)
+    for ui in user_IDs[(bead_types != 4) & (bead_types != 5)]:  # replace weird user IDs by order 1..N
+        np.place(bond_mat[:, 2:], bond_mat[:, 2:]==bead_IDs[ui-1], ui)
 
-    print("Saving data...")
     fname_beads = "nafion_ms.xyz"
     save_atoms(fname_beads, user_IDs, mol_IDs, bead_types, xyz_mat)
 
