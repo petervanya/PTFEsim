@@ -96,7 +96,7 @@ def create_2d_profile(dumpfiles, plane, nbins, D, H):
     res = np.zeros((nbins, nbins))
     axis = set([0, 1, 2]).difference(plane)
     axis = list(axis)[0]    # choose perpendicular axis to the given plane
-    print "Perp. axis:", axis
+    print("Perp. axis:", axis)
     for dumpfile in dumpfiles:
         A = read_outfile(dumpfile)
         A = A[(A[:, axis+1] > D-H/2) & (A[:, axis+1] < D+H/2)] # +1 to account for bead names col
@@ -111,7 +111,6 @@ def create_2d_profile(dumpfiles, plane, nbins, D, H):
 
 if __name__ == "__main__":
     args = docopt(__doc__)
-#    print args
     L = float(args["--boxsize"])#*rc
     axes = {"x": 0, "y": 1, "z": 2}
     planes = {"xy": (0, 1), "yz": (1, 2), "xz": (0, 2)}
@@ -119,49 +118,52 @@ if __name__ == "__main__":
     dumpfiles = glob.glob(args["<files>"])
     nbins = int(args["--bins"])
     subst = args["--subst"]
+    if subst not in subst_map.keys():
+        print("Choose substance from 'water', 'sulfonic', 'backbone'.")
+        sys.exit()
     
     if not dumpfiles:
-        print "No files captured, aborting."
+        print("No files captured, aborting.")
         sys.exit()
 
-    print "===== Water profile ====="
-    print "Substance:", subst, "| Bins:", nbins, "| Box size:", L/rc, \
-          "| xyz files:", len(dumpfiles)
+    print("===== Water profile =====")
+    print("Substance:", subst, "| Bins:", nbins, "| Box size:", L, \
+          "| xyz files:", len(dumpfiles))
     
     if args["1d"]:
         try:
             axis = axes[args["<axis>"]]
         except KeyError:
-            print "Choose axis from 'x', 'y', 'z'."
+            print("Choose axis from 'x', 'y', 'z'.")
             sys.exit()
         bins = np.linspace(0, L, nbins)
         profile, bins = create_1d_profile(dumpfiles, axis, subst, bins)
         bins = bins[:-1] + np.diff(bins)/2.0
 
         outname = "profile_1d_" + subst_map[subst] + "_" + str(len(dumpfiles)) + "f.out"
-        np.savetxt(outname, zip(bins, profile))
-        print "Array saved in", outname
+        np.savetxt(outname, np.vstack((bins, profile)).T)
+        print("Array saved in", outname)
 
     elif args["2d"]:
         try:
             plane = planes[args["<plane>"]]
         except KeyError:
-            print "Choose plane from 'xy', 'yz', 'xz'."
+            print("Choose plane from 'xy', 'yz', 'xz'.")
             sys.exit()
         D = float(args["--depth"])*rc
         H = float(args["--thick"])*rc
-        print "Plotting 2D profile | Plane:", args["<plane>"], "| Depth:", D/rc,"| Thickness:", H/rc
+        print("Plotting 2D profile | Plane:", args["<plane>"], "| Depth:", D/rc,"| Thickness:", H/rc)
 
         profile = create_2d_profile(dumpfiles, plane, nbins, D, H)
         outname = "profile_2d.out"
         np.savetxt(outname, profile)
-        print "Matrix saved in", outname
+        print("Matrix saved in", outname)
 
         plt.imshow(profile, cmap="spectral")# plt.get_cmap("gray")) #cmap = cm.Greys_r)
         plt.axis("off")
         plotname = "profile_2d_" + args["<plane>"] + "_" + str(len(dumpfiles)) + "f.png"
         plt.savefig(plotname)
-        print "Plot saved in", plotname
+        print("Plot saved in", plotname)
 
 
 
