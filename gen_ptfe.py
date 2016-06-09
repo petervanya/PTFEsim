@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 """Usage:
     gen_ptfe.py <input> [--el <el>] [--parsetopo]
                         [--save <fname>] [--xyz <xyz>] [--units <u>]
@@ -21,9 +21,6 @@ Options:
     --units <u>              SI or LJ [default: LJ]
 
 pv278@cam.ac.uk, 09/11/15
-
-TODO
-====
 """
 import numpy as np
 from math import *
@@ -40,14 +37,14 @@ NA = 6.022e23
 AMU = 1.66e-27
 m0 = 6*18*AMU
 rc = 8.14e-10               # DPD distance unit
-elem_wts = yaml.load(open(sys.path[0]+"/atomic_weights.yaml").read())
-rho_dry = 1950              # kg/m^3
-rho_wet = 1680
-rho_DPD = 3
-rho_el = {"carbon": 2000, "quartz": 2648, "silica": 2196}
-rho_Pt = 21450
-a_ii = 25.0
-k_ii = 4.0
+rho_DPD = 3.0
+a_DPD = 25.0
+k0 = 4.0
+rho_dry = 1950.0            # kg/m^3
+rho_wet = 1680.0
+rho_Pt = 21450.0
+rho_el = {"carbon": 2000.0, "quartz": 2648.0, "silica": 2196.0}
+elem_wts = {"C": 12.01, "O": 15.99, "Si": 28.08}
 
 
 def calc_nc_nw(N, Nmc, Nbm, lmbda):
@@ -67,11 +64,11 @@ def grow_polymer(beads_in_m, Nc, Nmc, L, Lcl, mu, sigma):
     mol_ids = range(1, Nc+1)
     xyz = np.zeros((Nc*Nbc, 5))
     for i in range(Nc):
-        xyz[i*Nbc : (i+1)*Nbc] = grow_one_chain2(beads_in_m, Nmc, L, Lcl, mol_ids[i], mu, sigma)
+        xyz[i*Nbc : (i+1)*Nbc] = grow_one_chain(beads_in_m, Nmc, L, Lcl, mol_ids[i], mu, sigma)
     return xyz
 
 
-def grow_one_chain2(beads_in_m, Nmc, L, Lcl, mol_id=1, mu=1.0, sigma=0.1):
+def grow_one_chain(beads_in_m, Nmc, L, Lcl, mol_id=1, mu=1.0, sigma=0.1):
     """Return xyz matrix of one polymer chain.
     Return (Nbc*len(beads_in_m), 5) xyz matrix with columns:
     * molecule/chain ID
@@ -85,7 +82,7 @@ def grow_one_chain2(beads_in_m, Nmc, L, Lcl, mol_id=1, mu=1.0, sigma=0.1):
     for i in range(1, len(types)):
         theta = np.random.rand()*pi
         phi = np.random.rand()*2*pi
-        r = mu + np.random.randn()*L*sigma
+        r = mu #+ np.random.randn()*L*sigma
         new_bead_pos = [r*cos(theta), r*sin(theta)*cos(phi), r*sin(theta)*sin(phi)]
         xyz[i] = xyz[i-1] + new_bead_pos
         xyz[i] = np.where(xyz[i] > L, L, xyz[i])     # on the boundary set coordinate to L or 0
@@ -151,16 +148,16 @@ def gen_pair_coeffs(bead_types, atoms_yaml, gamma, units="LJ"):
             lkey = "%s %s" % (num2coeff[j], num2coeff[i])
             if lkey in atoms_yaml.keys() or lkey[::-1] in atoms_yaml.keys():
                 try:
-                    a_ij[key] = [(a_ii + 3.27*atoms_yaml[lkey]), gamma, 1.0]
+                    a_ij[key] = [(a_DPD + 3.27*atoms_yaml[lkey]), gamma, 1.0]
                 except KeyError: # "B A" -> "A B"
-                    a_ij[key] = [(a_ii + 3.27*atoms_yaml[lkey[::-1]]), gamma, 1.0]
+                    a_ij[key] = [(a_DPD + 3.27*atoms_yaml[lkey[::-1]]), gamma, 1.0]
             else:
-                a_ij[key] = [a_ii, gamma, 1.0]
+                a_ij[key] = [a_DPD, gamma, 1.0]
 
     if units == "SI":
         for k in a_ij.keys():
-            a_ij[k][0] *= kB*T/rc
-            a_ij[k][1] *= m0 / (sqrt(m0 * rc**2/(kB*T)))
+            a_ij[k][0] *= kBT/rc
+            a_ij[k][1] *= m0 / (sqrt(m0 * rc**2/(kBT)))
             a_ij[k][2] *= rc
     return a_ij
 
@@ -180,11 +177,11 @@ def gen_bond_coeffs(bead_types, bonds_yaml, r0, units="LJ"):
             if key in bonds_yaml.keys():
                 k_ij[bmap[key]] = [bonds_yaml[key], r0]
             else:
-                k_ij[bmap[key]] = [k_ii, r0]
+                k_ij[bmap[key]] = [k0, r0]
     
     if units == "SI":
         for k in k_ij.keys():
-            k_ij[k][0] *= kB*T/(rc**2)
+            k_ij[k][0] *= kBT/(rc**2)
             k_ij[k][1] *= rc
     return k_ij
 
@@ -252,24 +249,24 @@ def get_platinum(NPt, L, Lcl, count=1):
 # =====
 if __name__ == "__main__":
     args = docopt(__doc__)
-#    print args
     try:
         data = yaml.load(open(args["<input>"]))
     except IOError:
-        print "File does not exist:", args["<input>"]
+        print "Input file not found:", args["<input>"]
+        sys.exit()
     np.random.seed(1234)
     
     units = args["--units"]
-    T = 1.0/kB
+    kBT = data["temperature"]
     L = data["box-size"]
-    tau = 1.0/sqrt(kB*T)
+    tau = 1.0/sqrt(kBT)
     gamma = data["gamma"] 
     r0 = data["equilibrium-dist"]
     lmbda = data["water-uptake"]
 
     if units == "SI":
-        T = data["temperature"]
-        tau = sqrt(m0 * rc**2/(kB*T))
+        kBT = kB*300.0
+        tau = sqrt(m0 * rc**2/(kBT))
 #        gamma *= m0/tau
 
     if lmbda < 3:
@@ -323,7 +320,7 @@ if __name__ == "__main__":
         beads = []
         [[beads.append(coeff2num[k]) for i in range(v)] for k, v in sorted(bead_dict.items())]
     else:
-        Nbm, Nmc = 5, 15
+        Nbm, Nmc = 5, data["mono-per-chain"]
         bead_types = "ABCW"
         beads = [1, 1, 1, 2, 3]
         Nbt = len(bead_types)
