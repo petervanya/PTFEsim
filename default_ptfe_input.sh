@@ -1,13 +1,13 @@
 #!/bin/bash
-# Default input.yaml serving for creation of LAMMPS data file to simulate Nafion
-# 09/11/15
+# Default input.yaml serving for creation of LAMMPS data file to simulate Nafion w carbon electrodes
+# 08/06/16
 
 cat >input.yaml <<EOF
 # ===== Bead types:
-# 
-# W: water bead 6 H2O
-# E: electrodes from carbon/quartz/silica
-# P: platinum on electrodes
+# * A, B, C
+# * W: water bead 6 H2O
+# * E: electrodes from carbon/quartz/silica
+# * P: platinum
 # =====
 box-size:          40           # DPD units, 1 = 8.14 AA
 temperature:       1.0          # Units of kB T
