@@ -203,41 +203,48 @@ def gen_water_beads(Nw, L, Lcl, count=1):
     return xyz
 
 
-def gen_electrodes(NELb, L, Lcl, count=1):
+def gen_el_support(Nelb, L, Lcl, Lpt, count=1):
     """Generate electrodes on both sides of the membrane
-    NELb: number of electrode beads"""
-    xyz1 = np.zeros((NELb/2, 5))
-    xyz1[:, 2:5] = np.random.rand(NELb/2, 3)
+    Return (Nelb, 3) xyz matrix
+    Nelb: number of electrode beads"""
+    if Nelb == 0:
+        return np.empty((0, 3), dtype=float)
+    xyz1 = np.zeros((Nelb/2, 5))
+    xyz1[:, 2:5] = np.random.rand(Nelb/2, 3)
     xyz1[:, 2] *= Lcl
     xyz1[:, 3] *= L
-    xyz1[:, 4] *= L
-    xyz2 = np.zeros((NELb - NELb/2, 5))
-    xyz2[:, 2:5] = np.random.rand(NELb - NELb/2, 3)
+    xyz1[:, 4] *= L - Lpt
+    xyz1[:, 4] += Lpt
+    xyz2 = np.zeros((Nelb - Nelb/2, 5))
+    xyz2[:, 2:5] = np.random.rand(Nelb - Nelb/2, 3)
     xyz2[:, 2] *= Lcl
     xyz2[:, 2] += L - Lcl
     xyz2[:, 3] *= L
-    xyz2[:, 4] *= L
+    xyz2[:, 4] *= L - Lpt
+    xyz2[:, 4] += Lpt
     xyz = np.vstack((xyz1, xyz2))
     xyz[:, 1] = 5      # atom id, MAKE THIS GENERAL
-    xyz[:, 0] = range(count, count+NELb)
+    xyz[:, 0] = range(count, count+Nelb)
     return xyz
 
 
 def get_platinum(NPt, L, Lcl, count=1):
     """Randomly generate Pt beads in catalyst layer
+    Return (NPt, 3) xyz matrix
     NPt: number of platinum beads"""
     if NPt == 0:
         return np.empty((0, 5), dtype=float)
     xyz1 = np.zeros((NPt/2, 5))
     xyz1[:, 2:5] = np.random.rand(NPt/2, 3)
-    xyz1[:, 2] = Lcl
+    xyz1[:, 2] *= Lcl
     xyz1[:, 3] *= L
-    xyz1[:, 4] *= L
+    xyz1[:, 4] *= Lpt
     xyz2 = np.zeros((NPt - NPt/2, 5))
     xyz2[:, 2:5] = np.random.rand(NPt - NPt/2, 3)
-    xyz2[:, 2] = L - Lcl
+    xyz2[:, 2] *= Lcl
+    xyz2[:, 2] *= L - Lcl
     xyz2[:, 3] *= L
-    xyz2[:, 4] *= L
+    xyz2[:, 4] *= Lpt
     xyz = np.vstack((xyz1, xyz2))
     xyz[:, 1] = 6    # atom id, MAKE THIS GENERAL
     xyz[:, 0] = range(count, count+NPt)
@@ -287,13 +294,13 @@ if __name__ == "__main__":
             print "Catalyst layer thicker than membrane, aborting."
             sys.exit()
 
-        Pt_amount = data["electrodes"]["Pt-amount"]
+        Pt_ratio = data["electrodes"]["Pt-ratio"]
         Vcl = L**2 * 2*Lcl
 
         print "Electrodes on | CL width on both sides:", Lcl, "(DPD) | Material:", elmat
 
-        NELb = rho_DPD * int(Vcl)         # not (4*pi/3*rc**3) ) must be cubes
-        NPt = int(Pt_amount * NELb)
+        Nelb = rho_DPD * int(Vcl)         # not (4*pi/3*rc**3) ) must be cubes
+        NPt = int(Pt_amount * Nelb)
 
         if elmat == "carbon":
             Natoms = NA * rho_el[elmat] * Vcl/(elem_wts["C"]*1e-3)
@@ -301,8 +308,8 @@ if __name__ == "__main__":
             Natoms = NA * rho_el[elmat] * Vcl/((elem_wts["Si"] + 2*elem_wts["O"])*1e-3)
         elif elmat == "silica":
             Natoms = NA * rho_el[elmat] * Vcl/((elem_wts["Si"] + 2*elem_wts["O"])*1e-3)
-        print "CL:", int(Natoms/NELb*rc**3), "electrode atoms per bead at density", rho_el[elmat]
-        print "Electrode beads: %i | Platinum beads: %i" % (NELb, NPt)
+        print "CL:", int(Natoms/Nelb*rc**3), "electrode atoms per bead at density", rho_el[elmat]
+        print "Electrode beads: %i | Platinum beads: %i" % (Nelb, NPt)
     else:
         Lcl = 0.0
         print "Electrodes off."
@@ -339,8 +346,8 @@ if __name__ == "__main__":
     poly_xyz = grow_polymer(beads, Nc, Nmc, L, Lcl, mu, sigma)
     wb_xyz = gen_water_beads(Nw, L, Lcl, count=Nc+1)
     if args["--el"]:
-        el_xyz = gen_electrodes(NELb, L, Lcl, count=Nc+Nw+1)
-        pt_xyz = get_platinum(NPt, L, Lcl, count=Nc+Nw+NELb+1)
+        el_xyz = gen_el_support(Nelb, L, Lcl, Lpt, count=Nc+Nw+1)
+        pt_xyz = get_platinum(NPt, L, Lcl, Lpt, count=Nc+Nw+Nelb+1)
         xyz = np.vstack((poly_xyz, wb_xyz, el_xyz, pt_xyz))
         bead_types += "EP"
         Nbt = len(bead_types)
