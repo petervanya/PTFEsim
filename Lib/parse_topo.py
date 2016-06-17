@@ -39,7 +39,7 @@ def parse_beads(raw_topo):
     """From a string parse the beads and numbers in one monomer"""
     topo_str, Nm = prelim_parsing(raw_topo)
     topo_entries = [s.strip(" ") for s in topo_str.split(",")]
-#    print "Topology:", topo_entries
+#    print("Topology:", topo_entries)
     Nbm = sum([int(i) for i in re.findall(r"\d+", topo_str)])
     bead_list = []
     cnt = 1
@@ -104,11 +104,11 @@ if __name__ == "__main__":
     raw_topo = args["--topo"]
     bead_list, Nm = parse_beads(raw_topo)
     bead_dict = gen_bead_dict(raw_topo)
-    print "Beads in monomer:\n", bead_dict
-    print "Num beads in monomer:", sum([v for v in bead_dict.itervalues()])
-    print "Testing correct parsing of topology string:\n", np.array(bead_list)
+    print("Beads in monomer:\n", bead_dict)
+    print("Num beads in monomer:", sum([v for v in bead_dict.itervalues()]))
+    print("Testing correct parsing of topology string:\n", np.array(bead_list))
     
-#    print bond_map("ABCW")
+#    print(bond_map("ABCW"))
     bond_mat = construct_bonds(bead_list, 3, 0)
-    print "Testing connectivity for 3 monomers:\n", bond_mat
+    print("Testing connectivity for 3 monomers:\n", bond_mat)
     

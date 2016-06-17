@@ -17,11 +17,28 @@ DPD parametrisation for Nafion, beads A to P
 
 Default cell size: a few (5-20) DPD sizes (one = 8.14 AA)
 
+
 ## Workflow
 1. Create `input.yaml` file with parameters using `default_ptfe_input.sh`
 2. Run `gen_ptfe.py` with appropriate options to create LAMMPS data file
 3. Run LAMMPS
 Data file contains entries in SI units.
+
+
+## DL_MESO scripts
+Scripts for manipulating IO files for [DL_MESO package](http://www.scd.stfc.ac.uk/SCD/40694.aspx) 
+for dissipative particle dynamics.
+
+Generate:
+* CONTROL file with given values
+* initial configuration of particles (CONFIG file)
+* interactions and molecules (FIELDS file)
+
+Systems to simulate:
+* binary mixture
+* diblock copolymer melt of A/B beads, from [Groot, JCP, 1998](http://dx.doi.org/10.1063/1.476300)
+* Nafion membrane with electrodes
+
 
 ## Dependencies
 * Numpy, f2py
@@ -30,3 +47,4 @@ Data file contains entries in SI units.
  ```
  $ f2py --fcompiler=gnu95 -c f_rdf.f90 -m f_rdf
  ```
+

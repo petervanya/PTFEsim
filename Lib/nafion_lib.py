@@ -30,7 +30,7 @@ def nafion_bead_wt(bead, arg="wet"):
     elif bead == "P":        # Pt
         return 30 * elem_wts["Pt"]
     else:
-        print "No such bead."
+        print("No such bead.")
         return 0
 
 

@@ -2,10 +2,11 @@
 """Usage:
     parse_ms.py <infile> [--boxsize <L>]
 
-Parse a Materials Studio xcf file and create two files, one with atoms and position, the other with bonds.
+[AD HOC] Parse a Materials Studio xcf file.
+Create two files, one with atoms and position, the other with bonds.
 
 Options:
-    --boxsize <L>       Rescale w.r.t. the box size [default: 40]
+    --boxsize <L>       Rescale w.r.t. box size [default: 40]
 
 pv278@cam.ac.uk, 10/05/16
 """

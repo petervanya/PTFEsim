@@ -21,10 +21,9 @@ import yaml
 import sys
 from docopt import docopt
 
-
-chi = {}
-chi["carbon"] = \
 """
+# My calculation for carbon
+# use calculation below by JAE from adsorption.xlsx
 A B: 1.23
 A C: 7.44
 B C: 2.70
@@ -35,6 +34,27 @@ A E: 0.29
 B E: 0.06
 C E: 0.06
 W E: 2.96
+"""
+
+chi = {}
+chi["carbon"] = \
+"""
+# adsorption.xlsx
+A B: 1.23
+A C: 7.44
+B C: 2.53
+A W: 16.91
+B W: 8.66
+C W: 1.85
+A E: 1.24
+B E: 0.05
+C E: 0.86
+W E: 2.89
+A P: 15.77
+B P: 8.07
+C P: 1.82
+W P: 0.01
+E P: 1.98
 """
 chi["quartz"] = \
 """
