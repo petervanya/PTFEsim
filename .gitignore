@@ -10,7 +10,11 @@
 *.data
 *.lammps
 input.yaml
-*.xyz
 Dump/
 Old/
 TODO.md
+*.exe
+CONFIG
+FIELD
+*.vmd
+*.xyz
