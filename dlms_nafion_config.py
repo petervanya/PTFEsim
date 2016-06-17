@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Usage:
-    dlms_nafion_config.py <input> [--el <el> --xyz <xyz>]
+    dlms_nafion_config.py <input> (dlms | lammps) [--el <el> --xyz <xyz>]
 
 Generate DL_MESO input CONFIG and FIELDS files.
 Electrode support: carbon, quartz or (amorphous) silica.
@@ -16,7 +16,8 @@ from numpy import pi, cos, sin
 import sys
 import yaml
 from docopt import docopt
-import lmp_lib as ll
+import Lib.lmp_lib as ll
+import Lib.dlms_lib as dlms
 
 NA = 6.022e23
 AMU = 1.66e-27
@@ -48,7 +49,7 @@ def set_electrodes(data, L):
         print("Electrode layer thicker than membrane, aborting.")
         sys.exit()
 
-    if Lcl > 1e-10:
+    if Lcl > 1e-5:
         Pt_ratio = data["electrodes"]["Pt-ratio"]
         elmat = data["electrodes"]["material"]
         Lpt = L * Pt_ratio
@@ -60,7 +61,7 @@ def set_electrodes(data, L):
         Npt = int(Pt_ratio * Nelb)
         if Nsup%2 != 0: Nsup += 1
         if Npt%2 != 0: Npt += 1
-        print("Beads: Electrode: %i | Support: %i | Pt: %i" % (Nelb, Nsup, Npt))
+        print("Beads on electrode: %i | Support: %i | Pt: %i" % (Nelb, Nsup, Npt))
     else:
         Lcl, Lpt = 0.0, 0.0
         Nsup, Npt = 0, 0
@@ -161,22 +162,39 @@ def gen_platinum(Npt, L, Lcl, Lpt):
     return xyz
 
 
-def gen_bonds(Nmc, bead_types):
+def gen_bonds(Nmc, Nc, mono_beads, start=0):
     """
     Generate bonds for one chain.
-    * bead_types: e.g. "AAABC", length Nbm (Number of beads per monomer)
+    * mono_beads: e.g. "AAABC", length Nbm (Number of beads per monomer)
+    * Nmc: num monomers in a chain
+    * Nc: number of chains
+    Return (Nmc*Nbm*Nc-1, 2) matrix: [bead1, bead2]
+    """
+    Nbc = Nmc * len(mono_beads) - 1
+    bonds_mat = np.zeros((Nbm*Nmc*Nc-1, 2))
+    for i in range(Nc):
+        bonds_mat[Nbc*i : Nbc*(i+1)] = \
+                  gen_bonds_one_chain(Nmc, mono_beads, start=start+i*Nc)
+    return bonds_mat
+
+
+def gen_bonds_one_chain(Nmc, mono_beads, start=0):
+    """
+    Generate bonds for one chain.
+    * mono_beads: e.g. "AAABC", length Nbm (Number of beads per monomer)
     * Nmc: num monomers in a chain
     Return (Nmc * Nbm, 2) matrix: [bead1, bead2]
     """
-    Nbm = len(bead_types)  # number of beads per monomer
+    Nbm = len(mono_beads)  # number of beads per monomer
     mono_bond_block = np.array([[1, -2],\
                                 [2, 1],\
                                 [3, 2],\
                                 [4, 3],\
                                 [5, 4]], dtype=int)
-    bond_mat = np.zeros((Nbm*Nmc, 2))
+    bond_mat = np.zeros((Nbm*Nmc, 2), dtype=int)
     for i in range(Nmc):
-        bond_mat[Nbm*i : Nbm*(i+1)] = mono_bond_block + Nbm
+        bond_mat[Nbm*i : Nbm*(i+1)] = mono_bond_block + Nbm*i
+    bond_mat += start*np.ones((len(bond_mat), 2), dtype=int)
     return bond_mat[1:]    # reject 1st dummy bond
 
 
@@ -201,70 +219,6 @@ def gen_inter_coeffs(atoms_yaml, bead_types, gamma=4.5, rc=1.0):
     return a_ij
 
 
-def species2str(bead_types, bead_pop):
-    """
-    * bead_types: e.g. "ABCWEP"
-    * bead_pop: dict of bead population
-    """
-    s = "SPECIES %i\n" % len(bead_types)
-    for b in bead_types:
-        s += b + "    1.0 0.0 " + str(bead_pop[b])
-        if b == "E" or b == "P":
-            s += " 1\n"
-        else:
-            s += " 0\n"
-    return s + "\n"
-
-
-def inter2str(a_ij, method="dpd"):
-    s = "INTERACTIONS %i\n" % len(a_ij)
-    for k, v in a_ij.items():
-        s += k + "    %s   %.3f  %.1f  %.2f\n" % (method, v[0], v[1], v[2])
-    return s + "\n"
-
-
-def mol2str(molname, Nmols, bead_list, bond_mat, bond_type="harm", k0=4.0, r0=0.1):
-    """Input:
-    * molecule name
-    * Nmols: number of molecules of this type
-    * bead_list: list of bead types in one molecule, each one char
-    * bond_mat: (Nbonds, 2) matrix of connected beads
-    * bond_type
-    * k0: spring constant
-    * r0: equilibrium distance
-    """
-    s = molname + "\n"
-    s += "nummols %s \n" % str(Nmols)
-    s += "beads %i\n" % len(bead_list)
-    for n in bead_list:
-        s += n + "\n"
-    s += "bonds %i\n" % len(bond_mat)
-    for i in range(len(bond_mat)):
-        s += "%s  %.2i %.2i %.3f %.3f\n" % \
-             (bond_type, bond_mat[i, 0], bond_mat[i, 1], k0, r0)
-    s += "finish\n"
-    return s
-
-
-def save_config(fname, names, xyz, imcon=0):
-    """Save positions into file
-    * imcom: include box coords (0 or 1)"""
-    N = len(xyz)
-    conf_str = "pokus\n" + "0\t%i\n" % imcon
-    if imcon == 1:
-        box = L*np.eye(3)
-        for i in range(len(box)):
-            conf_str += "%f\t%f\t%f\n" % (box[i, 0], box[i, 1], box[i, 2])
-
-    for i in range(N):
-        conf_str += "%s        %i\n" % (names[i], i+1)
-        # careful about the spaces
-        conf_str += "    %.10f    %.10f    %.10f\n" % (xyz[i, 0], xyz[i, 1], xyz[i, 2])
-
-    open(fname, "w").write(conf_str)
-    print("Initial configuration saved in %s" % fname)
-
-
 if __name__ == "__main__":
     args = docopt(__doc__)
     try:
@@ -281,65 +235,89 @@ if __name__ == "__main__":
         print("Water uptake should be more than 3, aborting.")
         sys.exit()
 
-    print("=== Creating DL_MESO input file for Nafion ===")
+    print("=== Creating input file for Nafion for %s ===" % \
+          ("DL_MESO" if args["dlms"] else "LAMMPS"))
     print("Box size: %.1f | Water uptake: %.1f" % (L, lmbda))
 
     # ===== setting numbers
     Lcl, Lpt, Nsup, Npt = set_electrodes(data, L)
+    Nelb = Nsup + Npt
     Nbm, Nmc = 5, data["mono-per-chain"]
     N = int(rho_DPD * L**2*(L-2*Lcl))   # number of polymer beads, must be cubes
     Nc, Nw = calc_nc_nw(N, Nmc, Nbm, lmbda)
     Nbc = Nbm*Nmc              
-    Nb = Nbc*Nc                
-    mu, sigma = 1.0, 0.01   # arbitrary sigma for generating chains
     print("Monomers per chain: %i, Beads per monomer: %i" % (Nmc, Nbm))
-    print(Nc, "polymer chains created")
+    print("%i polymer chains created | Water beads: %i" % (Nc, Nw))
     bead_types = "ABCWEP"
+    Nbt = len(bead_types)
     bead_pop = {"A": 0, "B": 0, "C": 0, "W": Nw, "E": Nsup, "P": Npt}
 
-    # ===== beads
+    # ===== beads inter params and bond params
     mono_beads = "AAABC"
-    poly_xyz = grow_polymer(Nbm, Nc, Nmc, L, Lcl, mu)
+    poly_xyz = grow_polymer(Nbm, Nc, Nmc, L, Lcl, mu=1.0)
     wb_xyz = gen_water_beads(Nw, L, Lcl)
     el_xyz = gen_el_support(Nsup, L, Lcl, Lpt)
     pt_xyz = gen_platinum(Npt, L, Lcl, Lpt)
-    xyz = np.vstack((wb_xyz, el_xyz, pt_xyz, poly_xyz))
-    config_names = ["W"]*Nw + ["E"]*Nsup + ["P"]*Npt + list(mono_beads)*Nmc*Nc
-    print(len(xyz), "beads created, density:", float(len(xyz)) / L**3)
-    
-    fname = "CONFIG"
-    save_config(fname, config_names, xyz)
+    xyz = np.vstack((wb_xyz, el_xyz, pt_xyz, poly_xyz))  # careful about order!
+    print("%i beads created, density: %.2f" % (len(xyz), len(xyz)/L**3))
+    atom_ids_l = ["W"]*Nw + ["E"]*Nsup + ["P"]*Npt + list(mono_beads)*Nmc*Nc
+
+    a_ij = gen_inter_coeffs(data["chi-params"], bead_types, gamma)
+    k_ij = {1: [k0, r0]}
+    masses = dict( (i, 1.0) for i in range(1, Nbt+1) )
+
+    # ==== printing
+    if args["dlms"]:
+        fname = "CONFIG"
+        dlms.save_config(fname, atom_ids_l, xyz)
+        print("Coordinates file saved in %s" % fname)
+ 
+        bond_mat = gen_bonds_one_chain(Nmc, mono_beads, start=0)
+        print("FIELD: %i bonds in a chain" % len(bond_mat))
+        bead_list = list("AAABC"*Nmc)
+        nafion_mol_str = dlms.mol2str("nafion", Nc, bead_list, bond_mat)
+        field_string = "bla\n\n" +\
+                       dlms.species2str(bead_types, bead_pop) +\
+                       dlms.inter2str(a_ij, method="dpd") + \
+                       "MOLECULES 1\n" + \
+                       nafion_mol_str + "\n" + \
+                       "close\n"
+ 
+        fname = "FIELD"
+        open(fname, "w").write(field_string)
+        print("FIELD file saved in %s" % fname)
+
+    elif args["lammps"]:
+        bt2num = {}
+        for i, bt in enumerate(bead_types): bt2num[bt] = i+1
+        atom_ids_n = [bt2num[bt] for bt in atom_ids_l]
+
+        Nmol = Nw + Nelb + Nc
+        mol_ids = list(range(1, Nw+Nelb+1))
+        for i in range(Nw+Nelb+1, Nmol+1):
+            mol_ids += [i]*Nbc
+
+        xyz_str = ll.atoms2str(np.hstack((np.matrix(atom_ids_n).T,\
+                                          np.matrix(mol_ids).T, xyz)))
+        bond_mat = gen_bonds(Nmc, Nc, mono_beads, start=Nw+Nelb)
+        bonds_str = ll.bonds2str2(bond_mat)
+
+        data_string = ll.header2str(len(xyz), len(bond_mat), Nbt, len(k_ij), L) + \
+                      ll.mass2str(masses) + \
+                      ll.pair_dpd_coeffs2str(a_ij) + \
+                      ll.bond_coeffs2str(k_ij) + \
+                      "Atoms\n\n" + xyz_str + \
+                      "Bonds\n\n" + bonds_str
+
+        fname = "nafion.data"
+        open(fname, "w").write(data_string)
+        print("Data file saved in", fname)
+
 
     if args["--xyz"]:
         fname = args["--xyz"]
-        bt2num = {}
-        for i, bt in enumerate(bead_types):
-            bt2num[bt] = i+1
-        names = [bt2num[bt] for bt in config_names]
-        xyz = np.hstack((np.matrix(names).T, xyz))
+        xyz = np.hstack((np.matrix(atom_ids).T, xyz))
         ll.save_xyzfile(fname, xyz)
         print("xyz file saved in", fname)
-
-
-    # ===== bonds
-    bond_mat = gen_bonds(Nmc, mono_beads)
-    print("FIELD: %i bonds in a chain" % len(bond_mat))
-    bead_list = list("AAABC"*Nmc)
-    nafion_mol_str = mol2str("nafion", Nc, bead_list, bond_mat)
-
-    # ===== interaction and bond parameters
-    a_ij = gen_inter_coeffs(data["chi-params"], bead_types, gamma)
-
-    # ===== final FIELDS string
-    field_string = "pokus\n\n" +\
-                   species2str(bead_types, bead_pop) +\
-                   inter2str(a_ij, method="dpd") + \
-                   "MOLECULES 1\n" + \
-                   nafion_mol_str + "\n" + \
-                   "close\n"
-
-    fname = "FIELD"
-    open(fname, "w").write(field_string)
-    print("FIELD file saved in %s" % fname)
-
-
+ 
+ 
