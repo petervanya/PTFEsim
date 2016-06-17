@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 """Usage:
     gen_ptfe.py <input> [--el <el>] [--parsetopo]
                         [--save <fname>] [--xyz <xyz>] [--units <u>]
@@ -16,20 +16,20 @@ Arguments:
 Options:
     --parsetopo              Get bead topology from the string in input.yaml, else use default (PTFE)
     --el <el>                Add electrodes: "carbon", "quartz" or (amorphous) "silica"
-    --save <fname>           Save the data file [default: temp.data]
+    --save <fname>           Save the data file [default: nafion.data]
     --xyz <xyz>              Print as xyz file for VMD view
-    --units <u>              SI or LJ [default: LJ]
+    --units <u>              SI or DPD [default: DPD]
 
 pv278@cam.ac.uk, 09/11/15
 """
 import numpy as np
 from math import *
-import os, sys
+import sys
 import yaml
 from docopt import docopt
-import parse_topo as pt
-from nafion_lib import nafion_bead_wt, num_poly_chains
-import lmp_lib as ll
+import Lib.parse_topo as pt
+from Lib.nafion_lib import nafion_bead_wt, num_poly_chains
+import Lib.lmp_lib as ll
 
 
 kB = 1.38064e-23
@@ -133,7 +133,7 @@ def bonds_mat2(raw_topo, Nc):
     return bonds
 
 
-def gen_pair_coeffs(bead_types, atoms_yaml, gamma, units="LJ"):
+def gen_pair_coeffs(bead_types, atoms_yaml, gamma, units="DPD"):
     """
     Generate atomic params a_ij for all possible combinations 
     given number of atom types. Read custom bonds from input.yaml file
@@ -162,7 +162,7 @@ def gen_pair_coeffs(bead_types, atoms_yaml, gamma, units="LJ"):
     return a_ij
 
 
-def gen_bond_coeffs(bead_types, bonds_yaml, r0, units="LJ"):
+def gen_bond_coeffs(bead_types, bonds_yaml, r0, units="DPD"):
     """
     Generate bond coeffs k_ij and r0 for all possible combinations
     given number of atom types. Read custom bonds from input.yaml file
@@ -203,27 +203,27 @@ def gen_water_beads(Nw, L, Lcl, count=1):
     return xyz
 
 
-def gen_electrodes(NELb, L, Lcl, count=1):
+def gen_electrodes(Nelb, L, Lcl, count=1):
     """Generate electrodes on both sides of the membrane
-    NELb: number of electrode beads"""
-    xyz1 = np.zeros((NELb/2, 5))
-    xyz1[:, 2:5] = np.random.rand(NELb/2, 3)
+    Nelb: number of electrode beads"""
+    xyz1 = np.zeros((Nelb/2, 5))
+    xyz1[:, 2:5] = np.random.rand(Nelb/2, 3)
     xyz1[:, 2] *= Lcl
     xyz1[:, 3] *= L
     xyz1[:, 4] *= L
-    xyz2 = np.zeros((NELb - NELb/2, 5))
-    xyz2[:, 2:5] = np.random.rand(NELb - NELb/2, 3)
+    xyz2 = np.zeros((Nelb - Nelb/2, 5))
+    xyz2[:, 2:5] = np.random.rand(Nelb - Nelb/2, 3)
     xyz2[:, 2] *= Lcl
     xyz2[:, 2] += L - Lcl
     xyz2[:, 3] *= L
     xyz2[:, 4] *= L
     xyz = np.vstack((xyz1, xyz2))
     xyz[:, 1] = 5      # atom id, MAKE THIS GENERAL
-    xyz[:, 0] = range(count, count+NELb)
+    xyz[:, 0] = range(count, count+Nelb)
     return xyz
 
 
-def get_platinum(NPt, L, Lcl, count=1):
+def gen_platinum(NPt, L, Lcl, count=1):
     """Randomly generate Pt beads in catalyst layer
     NPt: number of platinum beads"""
     if NPt == 0:
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     try:
         data = yaml.load(open(args["<input>"]))
     except IOError:
-        print "Input file not found:", args["<input>"]
+        print("Input file not found:", args["<input>"])
         sys.exit()
     np.random.seed(1234)
     
@@ -270,30 +270,30 @@ if __name__ == "__main__":
 #        gamma *= m0/tau
 
     if lmbda < 3:
-        print "Water uptake should be more than 3, aborting."
+        print("Water uptake should be more than 3, aborting.")
         sys.exit()
 
-    print "=== Creating LAMMPS input file for Nafion ==="
-    print "Box size:", L,"(DPD) | Temperature:", T,"| Tau:", tau
+    print("=== Creating LAMMPS input file for Nafion ===")
+    print("Box size:", L,"(DPD) | Temperature:", kBT,"| Tau:", tau)
 
     # ===== set electrode parameters
     if args["--el"]:
         elmat = args["--el"]
         if not elmat in ["carbon", "quartz", "silica"]:
-            print "Choose electrodes from 'carbon', 'quatrz', 'silica' (amorphous). Aborting."
+            print("Choose electrodes from 'carbon', 'quatrz', 'silica' (amorphous). Aborting.")
             sys.exit()
         Lcl = data["electrodes"]["width"]  # catalyst layer width
         if Lcl > L/2:
-            print "Catalyst layer thicker than membrane, aborting."
+            print("Catalyst layer thicker than membrane, aborting.")
             sys.exit()
 
-        Pt_amount = data["electrodes"]["Pt-amount"]
+        Pt_amount = data["electrodes"]["Pt-ratio"]
         Vcl = L**2 * 2*Lcl
 
-        print "Electrodes on | CL width on both sides:", Lcl, "(DPD) | Material:", elmat
+        print("Electrodes on | CL width on both sides:", Lcl, "(DPD) | Material:", elmat)
 
-        NELb = rho_DPD * int(Vcl)         # not (4*pi/3*rc**3) ) must be cubes
-        NPt = int(Pt_amount * NELb)
+        Nelb = int(rho_DPD * int(Vcl))         # not (4*pi/3*rc**3) ) must be cubes
+        NPt = int(Pt_amount * Nelb)
 
         if elmat == "carbon":
             Natoms = NA * rho_el[elmat] * Vcl/(elem_wts["C"]*1e-3)
@@ -301,16 +301,16 @@ if __name__ == "__main__":
             Natoms = NA * rho_el[elmat] * Vcl/((elem_wts["Si"] + 2*elem_wts["O"])*1e-3)
         elif elmat == "silica":
             Natoms = NA * rho_el[elmat] * Vcl/((elem_wts["Si"] + 2*elem_wts["O"])*1e-3)
-        print "CL:", int(Natoms/NELb*rc**3), "electrode atoms per bead at density", rho_el[elmat]
-        print "Electrode beads: %i | Platinum beads: %i" % (NELb, NPt)
+        print("CL:", int(Natoms/Nelb*rc**3), "electrode atoms per bead at density", rho_el[elmat])
+        print("Electrode beads: %i | Platinum beads: %i" % (Nelb, NPt))
     else:
         Lcl = 0.0
-        print "Electrodes off."
+        print("Electrodes off.")
 
     # ===== set polymer parameters
     if args["--parsetopo"]:
         raw_topo = data["topology"]
-        print "Topology:", raw_topo
+        print("Topology:", raw_topo)
         bead_list, Nmc = pt.parse_beads(raw_topo)   # information about connectivity
         Nbm = len(bead_list)
         bead_dict = pt.gen_bead_dict(raw_topo)      # dict of beads in one monomer
@@ -324,12 +324,12 @@ if __name__ == "__main__":
         bead_types = "ABCW"
         beads = [1, 1, 1, 2, 3]
         Nbt = len(bead_types)
-    print "Nmc: %i, Nbm: %i" % (Nmc, Nbm)
+    print("Nmc: %i, Nbm: %i" % (Nmc, Nbm))
 
     # ===== setting numbers
     N = int(rho_DPD * (L**3 - Vcl))            # must be cubes
     Nc, Nw = calc_nc_nw(N, Nmc, Nbm, lmbda)
-    print Nc, "polymer chains created"
+    print(Nc, "polymer chains created")
 
     Nbc = Nbm*Nmc              
     Nb = Nbc*Nc                
@@ -339,14 +339,14 @@ if __name__ == "__main__":
     poly_xyz = grow_polymer(beads, Nc, Nmc, L, Lcl, mu, sigma)
     wb_xyz = gen_water_beads(Nw, L, Lcl, count=Nc+1)
     if args["--el"]:
-        el_xyz = gen_electrodes(NELb, L, Lcl, count=Nc+Nw+1)
-        pt_xyz = get_platinum(NPt, L, Lcl, count=Nc+Nw+NELb+1)
+        el_xyz = gen_electrodes(Nelb, L, Lcl, count=Nc+Nw+1)
+        pt_xyz = gen_platinum(NPt, L, Lcl, count=Nc+Nw+Nelb+1)
         xyz = np.vstack((poly_xyz, wb_xyz, el_xyz, pt_xyz))
         bead_types += "EP"
         Nbt = len(bead_types)
     else:
         xyz = np.vstack((poly_xyz, wb_xyz))
-    print len(xyz), "beads created, density:", float(len(xyz)) / L**3
+    print(len(xyz), "beads created, density:", float(len(xyz)) / L**3)
 
     masses = dict( (i, 1.0) for i in range(1, Nbt+1) )  # all beads weigh the same
 
@@ -359,7 +359,7 @@ if __name__ == "__main__":
     # ===== bonds
     bonds = bonds_mat2(data["topology"], Nc)
     bonds_str = ll.bonds2str(bonds)
-    print len(bonds), "bonds created"
+    print(len(bonds), "bonds created")
 
     # ===== pair and bond parameters
     a_ij = gen_pair_coeffs(bead_types, data["chi-params"], gamma, units)
@@ -373,16 +373,13 @@ if __name__ == "__main__":
                    "Atoms\n\n" + xyz_str + \
                    "Bonds\n\n" + bonds_str
 
-    if args["--save"]:
-        fname = args["--save"]
-        open(fname, "w").write(final_string)
-        print "Data file saved in", fname
-    else:
-        print final_string
+    fname = args["--save"]
+    open(fname, "w").write(final_string)
+    print("Data file saved in", fname)
 
     if args["--xyz"]:
         fname = args["--xyz"]
         ll.save_xyzfile(fname, xyz[:, 1:])
-        print "xyz file saved in", fname
+        print("xyz file saved in", fname)
 
 
