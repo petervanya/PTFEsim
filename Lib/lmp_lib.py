@@ -15,9 +15,9 @@ def header2str(N, Nbonds, atomtypes, bondtypes, L):
     s += str(atomtypes) + " atom types\n"
     s += str(bondtypes) + " bond types\n"
     s += "\n"
-    s += "0.0 " + str(L) + " xlo xhi\n"
-    s += "0.0 " + str(L) + " ylo yhi\n"
-    s += "0.0 " + str(L) + " zlo zhi\n\n"
+    s += "0.0 %.1f xlo xhi\n" % L
+    s += "0.0 %.1f ylo yhi\n" % L
+    s += "0.0 %.1f zlo zhi\n\n" % L
     return s
 
 
@@ -25,7 +25,7 @@ def mass2str(masses):
     """Print mass dictionary into string for LAMMPS data file"""
     s = "Masses\n\n"
     for k, v in masses.items():
-        s += str(k) + " " + str(v)  + "\n"
+        s += "%i %.2f\n" % (k, v)
     return s + "\n"
 
 
@@ -37,7 +37,7 @@ def pair_dpd_coeffs2str(coeffs):
     """
     s = "PairIJ Coeffs\n\n"
     for k, v in coeffs.items():
-        s += "%s %s %s %s\n" % (str(k), str(v[0]), str(v[1]), str(v[2]))
+        s += "%s %.3f %.2f %.2f\n" % (k, v[0], v[1], v[2])
     return s + "\n"
 
 
@@ -49,7 +49,7 @@ def bond_coeffs2str(k_ij):
     """
     s = "Bond Coeffs\n\n"
     for k, v in k_ij.items():
-        s += "%s %s %s\n" % (str(k), "%e" % v[0], "%e" % v[1])
+        s += "%s %.2f %.2f\n" % (k, v[0], v[1])
     return s + "\n"
 
 
@@ -76,6 +76,17 @@ def bonds2str(bond_mat):
     return s + "\n"
 
 
+def bonds2str2(bond_mat):
+    """Take (N, 2) matrix and convert it to LAMMPS string.
+    stick single bond id (1) to and bond number to the left.
+    Columns: [num, bond_id, bond1, bond2]"""
+    M = len(bond_mat)
+    s = ""
+    for i in range(M):
+        s += "%i\t%i\t%i\t%i\n" % (i+1, 1, bond_mat[i, 0], bond_mat[i, 1])
+    return s + "\n"
+
+
 # ===== manipulate output
 def read_xyzfile(outfile):
     """Read one xyz outfile into a numpy matrix"""
@@ -92,4 +103,5 @@ def save_xyzfile(fname, mat):
         f.write(str(N) + "\nbla\n")
         for i in range(N):
             f.write("%i\t%f\t%f\t%f\n" % (mat[i, 0], mat[i, 1], mat[i, 2], mat[i, 3]))
+
 
