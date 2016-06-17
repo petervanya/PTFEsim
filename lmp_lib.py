@@ -24,7 +24,7 @@ def header2str(N, Nbonds, atomtypes, bondtypes, L):
 def mass2str(masses):
     """Print mass dictionary into string for LAMMPS data file"""
     s = "Masses\n\n"
-    for k, v in masses.iteritems():
+    for k, v in masses.items():
         s += str(k) + " " + str(v)  + "\n"
     return s + "\n"
 
@@ -36,7 +36,7 @@ def pair_dpd_coeffs2str(coeffs):
     * value: [force, gamma, cutoff]
     """
     s = "PairIJ Coeffs\n\n"
-    for k, v in coeffs.iteritems():
+    for k, v in coeffs.items():
         s += "%s %s %s %s\n" % (str(k), str(v[0]), str(v[1]), str(v[2]))
     return s + "\n"
 
@@ -48,7 +48,7 @@ def bond_coeffs2str(k_ij):
     * value [k_ij, r0]
     """
     s = "Bond Coeffs\n\n"
-    for k, v in k_ij.iteritems():
+    for k, v in k_ij.items():
         s += "%s %s %s\n" % (str(k), "%e" % v[0], "%e" % v[1])
     return s + "\n"
 
