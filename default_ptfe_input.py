@@ -72,12 +72,12 @@ lmbda = float(args["--lmbda"])
 gamma = float(args["--gamma"])
 k0 = 4.0
 r0 = 0.1
-el = args["--el"]
+elmat = args["--el"]
 w = float(args["--width"])
 rPt = float(args["--rpt"])
 
-if el not in ["carbon", "silica", "quartz"]:
-    print("ERROR. Choose from electrodes: carbon, silica, quartz.")
+if elmat not in ["carbon", "silica", "quartz"]:
+    print("ERROR. Choose from electrode support: carbon, silica, quartz.")
     sys.exit()
 
 if w < 0.0 or w > L/2:
@@ -85,15 +85,14 @@ if w < 0.0 or w > L/2:
     sys.exit()
 
 if rPt < 0.0 or rPt > 1.0:
-    print("ERROR: Platinum segment must be between 0 and 1.")
+    print("ERROR: Platinum ratio must be between 0 and 1.")
     sys.exit()
 
-s = \
-"""# ===== Bead types:
+s = """# ===== Bead types:
 # * A, B, C
-# * W: water bead 6 H2O
-# * E: electrodes from carbon/quartz/silica
-# * P: platinum
+# * W: water bead: 6 H2O\n"""
+s += "# * E: electrodes from %s\n" % elmat
+s += """# * P: platinum
 # =====\n"""
 
 s += "box-size:          %.0f        # DPD units, 1 = 8.14 AA\n" % L
@@ -104,7 +103,7 @@ s += "gamma:             %.1f       # DPD drag coefficient\n" % gamma
 s += "topology:          (A 3, [B 1], [C 1])15\n\n"
 
 s += "chi-params:\n"
-for k, v in yaml.load(chi[el]).items():
+for k, v in yaml.load(chi[elmat]).items():
     s += "    %s: %.2f\n" % (k, v)
 
 s += "\n"
@@ -112,8 +111,9 @@ s += "bond-coeffs:\n    A A: %.1f\n\n" % k0
 s += "equilibrium-dist:  %.1f\n\n" % r0
 
 s += "electrodes:\n"
+s += "    material:      %s\n" % elmat
 s += "    width:         %.1f       # electrode width\n" % w 
-s += "    Pt-amount:     %.1f       # ratio of Pt/C segment\n" % rPt
+s += "    Pt-ratio:      %.1f       # ratio of Pt/C segment\n" % rPt
 
 fname = "input.yaml"
 open(fname, "w").write(s)
