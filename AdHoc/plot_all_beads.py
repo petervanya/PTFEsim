@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 """Usage:
-    plot_all_beads.py <fileW> <fileS> <fileB> <savefile> [--title <ttl>]
+    plot_all_beads.py <fileW> <fileB> [--boxsize <L>]
 
 [AD HOC] script to format plotting of normalised water profiles
-for water, sulfonic acid groups and PTFE backbone
+for water and PTFE backbone.
+Previously also plotted sulfonic acid groups.
+
+Options:
+    --boxsize <L>       Box size [default: 20.0]
 
 25/02/16
 """
@@ -13,39 +17,32 @@ import matplotlib
 import glob, sys
 from docopt import docopt
 
+rc = 8.14e-10
+matplotlib.rcParams.update({'font.size': 16})
 
 args = docopt(__doc__)
-#print args
-
-matplotlib.rcParams.update({'font.size': 16})
+L = float(args["--boxsize"])
 fileW = args["<fileW>"]
-fileS = args["<fileS>"]
 fileB = args["<fileB>"]
 lw = 3.0    # linewidth
+print("Box size: %.2f" % L)
 
 A = np.loadtxt(fileB)
-A[:, 0] *= 1e9
+A[:, 0] *= rc*1e9   # convert to nm
 A[:, 1] /= sum(A[:, 1])
 plt.plot(A[:, 0], A[:, 1], "red", label="backbone", linewidth=lw)
 
-#A = np.loadtxt(fileS)
-#A[:, 0] *= 1e9
-#A[:, 1] /= sum(A[:, 1])
-#plt.plot(A[:, 0], A[:, 1], "green", label="sulfonic", linewidth=lw-1)
-
 A = np.loadtxt(fileW)
-A[:, 0] *= 1e9
+A[:, 0] *= rc*1e9
 A[:, 1] /= sum(A[:, 1])
 plt.plot(A[:, 0], A[:, 1], "blue", label="water", linewidth=lw)
 
 plt.xlabel("$x$ (nm)", fontsize=20)
-plt.xlim([0.5, 32.0])
-#plt.yticks([])
+plt.xlim([0.5, np.max(A[:, 0]) - 0.5])
 plt.legend(loc="best")
 
-if args["--title"]:
-   plt.title(args["<ttl>"])
-plt.savefig(args["<savefile>"])
-print "Plot saved in", args["<savefile>"]
+imgname = "plot.png"
+plt.savefig(imgname)
+print("Plot saved in", imgname)
 
 
