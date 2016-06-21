@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Usage:
-    water_profile.py <files> (1d <axis> | 2d <plane> --depth <d> --thick <h>)
-                     [--bins <bins>] [--subst <s>] [--boxsize <L>]
+    ptfe_profile.py <files> (1d <axis> | 2d <plane> --depth <d> --thick <h>)
+                     [--bins <bins> --subst <s> --boxsize <L>]
 
 Create 1D or 2D profile of water molecules in Nafion w or wo electrodes.
 * 1D: choose axis along which to profile
