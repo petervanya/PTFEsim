@@ -53,14 +53,19 @@ def bond_coeffs2str(k_ij):
     return s + "\n"
 
 
-def atoms2str(mat):
+def atoms2str(mat, atom_style="molecular"):
     """Convert atomic matrix to str, atom_type molecular
     xyz_mat[:, 0] are atom ids"""
     M = len(mat)
     s = ""
-    for i in range(M):
-        s += "%i\t%i\t%i\t%e\t%e\t%e\n" % \
-             (i+1, mat[i, 0], mat[i, 1], mat[i, 2], mat[i, 3], mat[i, 4])
+    if atom_style == "molecular":
+        for i in range(M):
+            s += "%i\t%i\t%i\t%e\t%e\t%e\n" % \
+                 (i+1, mat[i, 0], mat[i, 1], mat[i, 2], mat[i, 3], mat[i, 4])
+    elif atom_style == "atomic":
+        for i in range(M):
+            s += "%i\t%i\t%e\t%e\t%e\n" % \
+                 (i+1, mat[i, 0], mat[i, 1], mat[i, 2], mat[i, 3])
     return s + "\n"
 
 
