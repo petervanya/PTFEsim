@@ -103,6 +103,8 @@ def grow_one_chain(Nbm, Nmc, L, Lcl, mu=1.0):
         r = mu
         new_bead_pos = [r*cos(theta), r*sin(theta)*cos(phi), r*sin(theta)*sin(phi)]
         xyz[i] = xyz[i-1] + new_bead_pos
+        xyz[i] = np.where(xyz[i] > L, L, xyz[i])     # on the boundary set coordinate to L or 0
+        xyz[i] = np.where(xyz[i] < 0.0, 0.0, xyz[i])
     xyz[:, 0] = xyz[:, 0]*(L-2*Lcl)/L + Lcl        # fit into proper volume
     return xyz
 
@@ -172,12 +174,13 @@ def gen_bonds(Nmc, Nc, mono_beads, start=0):
     * Nc: number of chains
     Return (Nmc*Nbm*Nc-1, 2) matrix: [bead1, bead2]
     """
-    Nbc = Nmc * len(mono_beads) - 1
-    bonds_mat = np.zeros((Nbm*Nmc*Nc-1, 2))
+    Nbc = Nmc * len(mono_beads)   # beads per chain
+    bond_mat = np.zeros(( (Nbm*Nmc-1)*Nc, 2) )
+    Nboc = Nbc - 1                # bonds per chain
     for i in range(Nc):
-        bonds_mat[Nbc*i : Nbc*(i+1)] = \
-                  gen_bonds_one_chain(Nmc, mono_beads, start=start+i*Nc)
-    return bonds_mat
+        bond_mat[Nboc*i : Nboc*(i+1)] =\
+                 gen_bonds_one_chain(Nmc, mono_beads, start=start+i*Nbc)
+    return bond_mat
 
 
 def gen_bonds_one_chain(Nmc, mono_beads, start=0):
@@ -264,7 +267,7 @@ if __name__ == "__main__":
     print("%i beads created, density: %.2f" % (len(xyz), len(xyz)/L**3))
     atom_ids_l = ["W"]*Nw + ["E"]*Nsup + ["P"]*Npt + list(mono_beads)*Nmc*Nc
 
-    a_ij = gen_inter_coeffs(data["chi-params"], bead_types, gamma)
+    a_ij = gen_inter_coeffs(data["chi-params"], bead_types, gamma, rc=1.0)
     k_ij = {1: [k0, r0]}
     masses = dict( (i, 1.0) for i in range(1, Nbt+1) )
 
@@ -290,23 +293,39 @@ if __name__ == "__main__":
         print("FIELD file saved in %s" % fname)
 
     elif args["lammps"]:
+#        xyz = np.vstack((poly_xyz, wb_xyz, el_xyz, pt_xyz))  # careful about order!
+#        print("%i beads created, density: %.2f" % (len(xyz), len(xyz)/L**3))
+#        atom_ids_l = list(mono_beads)*Nmc*Nc + ["W"]*Nw + ["E"]*Nsup + ["P"]*Npt
         bt2num = {}
         for i, bt in enumerate(bead_types): bt2num[bt] = i+1
         atom_ids_n = [bt2num[bt] for bt in atom_ids_l]
 
-        Nmol = Nw + Nelb + Nc
-        mol_ids = list(range(1, Nw+Nelb+1))
-        for i in range(Nw+Nelb+1, Nmol+1):
-            mol_ids += [i]*Nbc
+        # ===== pair coeffs
+        a_ij_lmp = {}
+        for k in a_ij.keys():
+            k_new = " ".join([str(bt2num[i]) for i in k.split()])
+            a_ij_lmp[k_new] = a_ij[k]
+        for v in a_ij.values():
+            v[1], v[2] = v[2], v[1]  # swap gamma/rc
 
-        xyz_str = ll.atoms2str(np.hstack((np.matrix(atom_ids_n).T,\
-                                          np.matrix(mol_ids).T, xyz)))
+        # ===== molecular ids
+#        mol_ids = []
+        Nmol = Nw + Nelb + Nc  # total num of molecules
+        mol_ids = list(range(1, Nw+Nelb+1))
+        for i in range(Nw+Nelb+1, Nmol+1): #(1, Nc+1):   # chains
+            mol_ids += [i]*Nbc
+#        mol_ids += list(range(Nc*Nbc+1, Nmol+1))   # water, support, Pt
+
+        xyz_str = ll.atoms2str(\
+                  np.hstack((np.matrix(mol_ids).T, np.matrix(atom_ids_n).T, xyz)))
+        # ===== bonds
         bond_mat = gen_bonds(Nmc, Nc, mono_beads, start=Nw+Nelb)
         bonds_str = ll.bonds2str2(bond_mat)
+        print("%i bonds created." % len(bond_mat))
 
         data_string = ll.header2str(len(xyz), len(bond_mat), Nbt, len(k_ij), L) + \
                       ll.mass2str(masses) + \
-                      ll.pair_dpd_coeffs2str(a_ij) + \
+                      ll.pair_dpd_coeffs2str(a_ij_lmp) + \
                       ll.bond_coeffs2str(k_ij) + \
                       "Atoms\n\n" + xyz_str + \
                       "Bonds\n\n" + bonds_str
@@ -317,7 +336,7 @@ if __name__ == "__main__":
 
     if args["--xyz"]:
         fname = args["--xyz"]
-        xyz = np.hstack((np.matrix(atom_ids).T, xyz))
+        xyz = np.hstack((np.matrix(atom_ids_n).T, xyz))
         ll.save_xyzfile(fname, xyz)
         print("xyz file saved in", fname)
  
