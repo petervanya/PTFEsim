@@ -43,10 +43,7 @@ if __name__ == "__main__":
     print("Levcfg = %i" % levcfg)
     if levcfg == 0:
         N = len(conf_str) // 2
-    else:
-        printf("File contains velocities and/or forces, aborting.")
-        sys.exit()
-    elif levcfg = 1:
+    elif levcfg == 1:
         print("File contains velocities.")
         N = len(conf_str) // 3
     elif levcfg >= 2:
@@ -76,7 +73,6 @@ if __name__ == "__main__":
 
     fname = infile.strip(".out") + ".xyz"
     save_xyzfile(fname, names, xyz)
-    print("xyz file saved in", fname)
 
     if levcfg == 1:
         vel = np.array([[float(j) for j in conf_str[i].split()] for i in mask+2])
