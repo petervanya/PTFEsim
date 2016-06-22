@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 """Usage:
-    dlms_control.py [--L <L> --dt <dt> --nsteps <n> --thermo <th> --halo <h>]
+    dlms_control.py [--L <L> --dt <dt> --steps <n> --thermo <th> --halo <h>]
 
 Generate DL_MESO control file.
 
 Options:
      --L <L>            Box length [default: 40.0]
-     --dt <dt>          Timestep [default: 0.04]
-     --nsteps <n>       Number of steps [default: 10000]
+     --dt <dt>          Timestep [default: 0.05]
+     --steps <n>        Number of steps [default: 10000]
      --thermo <th>      Print every [default: 100]
      --halo <h>         Boundary halo, like neighbor [default: 2.5]
 
@@ -20,7 +20,7 @@ import sys
 args = docopt(__doc__)
 L = float(args["--L"])
 dt = float(args["--dt"])
-N = int(args["--nsteps"])
+N = int(args["--steps"])
 thermo = int(args["--thermo"])
 halo = float(args["--halo"])
 
