@@ -28,7 +28,6 @@ if not os.path.isfile(fileW) or not os.path.isfile(fileB):
     sys.exit()
     
 L = float(args["--boxsize"])
-print("Box size: %.2f" % L)
 lw = 3.0
 
 A = np.loadtxt(fileB)
@@ -45,8 +44,8 @@ plt.xlabel("$x$ (nm)", fontsize=20)
 plt.xlim([0.5, np.max(A[:, 0]) - 0.5])
 plt.legend(loc="best")
 
-imgname = "plot.png"
-if args["--pdf"]: imgname = "plot.pdf"
+imgname = "profile_1d.png"
+if args["--pdf"]: imgname = "profile_1d.pdf"
 plt.savefig(imgname)
 print("Plot saved in", imgname)
 
