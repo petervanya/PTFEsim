@@ -304,7 +304,7 @@ if __name__ == "__main__":
         print("CL:", int(Natoms/Nelb*rc**3), "electrode atoms per bead at density", rho_el[elmat])
         print("Electrode beads: %i | Platinum beads: %i" % (Nelb, NPt))
     else:
-        Lcl = 0.0
+        Lcl, Vcl = 0.0, 0.0
         print("Electrodes off.")
 
     # ===== set polymer parameters
