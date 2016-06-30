@@ -58,12 +58,12 @@ def set_electrodes(data, L):
         Vcl = 2 * Lcl * L**2
         print("Electrodes on | Width: %.2f | Material: %s" % (Lcl, elmat))
 
-        Nelb = int(rho_DPD * int(Vcl))     # not (4*pi/3*rc**3) ), must be cubes
+        Nelb = int(rho_DPD * int(Vcl))     # not (4*pi/3*rc**3), must be cubes
         Nsup = int((1-Pt_ratio) * Nelb)
         Npt = int(Pt_ratio * Nelb)
         if Nsup%2 != 0: Nsup += 1
         if Npt%2 != 0: Npt += 1
-        print("Beads on electrode: %i | Support: %i | Pt: %i" % (Nelb, Nsup, Npt))
+        print("Electrode beads: %i | Support: %i | Pt: %i" % (Nelb, Nsup, Npt))
     else:
         Lcl, Lpt = 0.0, 0.0
         Nsup, Npt = 0, 0
@@ -98,12 +98,12 @@ def grow_one_chain(Nbm, Nmc, L, Lcl, mu=1.0):
     xyz = np.zeros((N, 3))
     xyz[0] = np.random.rand(3)*L
     for i in range(1, N):
-        theta = np.random.rand()*pi
+        th = np.random.rand()*pi
         phi = np.random.rand()*2*pi
         r = mu
-        new_bead_pos = [r*cos(theta), r*sin(theta)*cos(phi), r*sin(theta)*sin(phi)]
+        new_bead_pos = [r*cos(th), r*sin(th)*cos(phi), r*sin(th)*sin(phi)]
         xyz[i] = xyz[i-1] + new_bead_pos
-        xyz[i] = np.where(xyz[i] > L, L, xyz[i])     # on the boundary set coordinate to L or 0
+        xyz[i] = np.where(xyz[i] > L, L, xyz[i])   # on boundary coord = L/0
         xyz[i] = np.where(xyz[i] < 0.0, 0.0, xyz[i])
     xyz[:, 0] = xyz[:, 0]*(L-2*Lcl)/L + Lcl        # fit into proper volume
     return xyz
@@ -248,7 +248,7 @@ if __name__ == "__main__":
     Lcl, Lpt, Nsup, Npt = set_electrodes(data, L)
     Nelb = Nsup + Npt
     Nbm, Nmc = 5, data["mono-per-chain"]
-    N = int(rho_DPD * L**2*(L-2*Lcl))   # number of polymer beads, must be cubes
+    N = int(rho_DPD * L**2*(L-2*Lcl))   # num. polymer beads, must be cubes
     Nc, Nw = calc_nc_nw(N, Nmc, Nbm, lmbda)
     Nbc = Nbm*Nmc              
     print("Monomers per chain: %i, Beads per monomer: %i" % (Nmc, Nbm))
@@ -311,8 +311,8 @@ if __name__ == "__main__":
         for i in range(Nw+Nelb+1, Nmol+1): #(1, Nc+1):   # chains
             mol_ids += [i]*Nbc
 
-        xyz_str = ll.atoms2str(\
-                  np.hstack((np.matrix(mol_ids).T, np.matrix(atom_ids_n).T, xyz)))
+        xyz_str = ll.atoms2str(np.hstack((np.matrix(mol_ids).T,\
+                               np.matrix(atom_ids_n).T, xyz)))
         # ===== bonds
         bond_mat = gen_bonds(Nmc, Nc, mono_beads, start=Nw+Nelb)
         bonds_str = ll.bonds2str2(bond_mat)
