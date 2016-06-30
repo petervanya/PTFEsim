@@ -140,7 +140,7 @@ if __name__ == "__main__":
         profile, bins = create_1d_profile(dumpfiles, axis, subst, bins)
         bins = bins[:-1] + np.diff(bins)/2.0
 
-        outname = "profile_1d_" + subst_map[subst] + "_" + str(len(dumpfiles)) + "f.out"
+        outname = "profile_1d_%s_%if.out" % (subst_map[subst], len(dumpfiles))
         np.savetxt(outname, np.vstack((bins, profile)).T)
         print("Array saved in", outname)
 
@@ -150,9 +150,10 @@ if __name__ == "__main__":
         except KeyError:
             print("Choose plane from 'xy', 'yz', 'xz'.")
             sys.exit()
-        D = float(args["--depth"])*rc
-        H = float(args["--thick"])*rc
-        print("Plotting 2D profile | Plane:", args["<plane>"], "| Depth:", D/rc,"| Thickness:", H/rc)
+        D = float(args["--depth"])
+        H = float(args["--thick"])
+        print("2D profile | Plane: %s | Depth: %.1f | Thickness: %.1f") % \
+             (args["<plane>"], D, H)
 
         profile = create_2d_profile(dumpfiles, plane, nbins, D, H)
         outname = "profile_2d.out"
