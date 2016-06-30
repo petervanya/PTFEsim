@@ -16,4 +16,4 @@ A = ll.read_xyzfile(args["<infile>"])
 A[:, 1:] *= 1e10
 outfile = "converted.xyz"
 ll.save_xyzfile(outfile, A)
-print "File with units in AA saved in", outfile
+print("File with units in AA saved in", outfile)

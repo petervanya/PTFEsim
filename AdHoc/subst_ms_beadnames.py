@@ -12,10 +12,8 @@ Usage:
 import numpy as np
 import glob
 from docopt import docopt
-import lmp_lib as ll
 
-
-names_dict = {"A": "1", "B11": "2", "C": 3, "W": 4, "G": 5}
+names_dict = {"A": "1", "B11": "2", "C": 3, "W": 4, "G": 5, "P": 6}
 
 
 def read_xyzfile(outfile):
@@ -32,22 +30,22 @@ def save_xyzfile(fname, mat):
     with open(fname, "w") as f:
         f.write(str(N) + "\nbla\n")
         for i in range(N):
-            f.write("%i\t%e\t%e\t%e\n" % (mat[i, 0], mat[i, 1], mat[i, 2], mat[i, 3]))
+            f.write("%i\t%e\t%e\t%e\n" % \
+                   (mat[i, 0], mat[i, 1], mat[i, 2], mat[i, 3]))
 
 
 args = docopt(__doc__)
 infiles = glob.glob(args["<input>"])
-print infiles
+print(infiles)
 outfiles = ["dump_" + fn[1:] + ".xyz" for fn in infiles]
 
 for i in range(len(infiles)):
     A = read_xyzfile(infiles[i])
-    for ch, d in names_dict.iteritems():
+    for ch, d in names_dict.items():
         A[A[:, 0] == ch, 0] = d
 
     A = A.astype(float)
     A[:, 1:] *= 1e-10
-#    print A[:10, :]
     save_xyzfile(outfiles[i], A)
-    print "Converted file saved in", outfiles[i]
+    print("Converted file saved in", outfiles[i])
 

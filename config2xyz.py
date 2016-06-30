@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 """Usage:
-    parse_config.py <input> [--shift --nafion]
+    parse_config.py <input> [--shift --shift2 <a> --nafion]
 
 Transform DL_MESO CONFIG file into xyz file.
 
 Options:
-    --shift        Shift box from centre to the +ve quadrant
+    --shift        Shift box from centre to the +ve quadrant by inferring box size
+    --shift2 <a>   Shift by pre-defined vector
     --nafion       Use "ABCWEP" bead order
 
 pv278@cam.ac.uk, 31/05/16
@@ -37,7 +38,7 @@ if __name__ == "__main__":
         conf_str = np.array(conf_str[2:])
     else:              # skip over box coordinates
         box = np.array([line.split() for line in conf_str[2:5]]).astype(float)
-        print("Box:", np.diag(box))
+        print("System size:", np.diag(box))
         conf_str = np.array(conf_str[5:])
 
     print("Levcfg = %i" % levcfg)
@@ -67,6 +68,11 @@ if __name__ == "__main__":
 
     if args["--shift"]:
         Ls = np.round((np.max(xyz) - np.min(xyz)), 1)
+        xyz += np.array([Ls, Ls, Ls])
+        xyz = xyz % Ls
+        print("Shifted box by Ls = %i." % Ls)
+    if args["--shift2"]:
+        Ls = float(args["--shift2"])
         xyz += np.array([Ls, Ls, Ls])
         xyz = xyz % Ls
         print("Shifted box by Ls = %i." % Ls)

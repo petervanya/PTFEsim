@@ -66,17 +66,17 @@ def mapdisplacement(dr,cell,invcell):
 L1 = np.array([1, 0, 0])
 L2 = np.array([0, 1, 0])
 L3 = np.array([0, 0, 1])
-cell_vecs = np.vstack((L1, L2, L3))
+cell = np.vstack((L1, L2, L3))
 try:
-    inv_cell = np.linalg.pinv(cell_vecs)
+    inv_cell = np.linalg.pinv(cell)
 except LinAlgError:
     print "Singular matrix, aborting."
     sys.exit()
 
 dr = np.random.rand(3)
 G = np.dot(inv_cell, dr)
-G_n = G - np.round(G)
-dr_n = np.dot(cell_vecs, G_n)
+G_new = G - np.round(G)
+dr_new = np.dot(cell, G_new)
 print dr, "\n", dr_n
 
 
