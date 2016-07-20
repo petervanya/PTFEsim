@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Usage:
-    dlms_nafion_config.py <input> (dlms | lammps) [--xyz <xyz>]
+    gen_ptfe.py <input> (dlms | lammps) [--xyz <xyz>]
 
 Generate Nafion input files to feed into a DPD software suite.
 Options:
@@ -189,13 +189,17 @@ def gen_bonds_one_chain(Nmc, mono_beads, start=0):
     * mono_beads: e.g. "AAABC", length Nbm (Number of beads per monomer)
     * Nmc: num monomers in a chain
     Return (Nmc * Nbm, 2) matrix: [bead1, bead2]
+    Build bond block purely from string of beads, where 1st bead is always
+    connected to -2nd bead from previous monomer
     """
     Nbm = len(mono_beads)  # number of beads per monomer
-    mono_bond_block = np.array([[1, -2],\
-                                [2, 1],\
-                                [3, 2],\
-                                [4, 3],\
-                                [5, 4]], dtype=int)
+    mono_bond_block = np.vstack((np.arange(1,Nbm+1), np.arange(0, Nbm))).T
+    mono_bond_block[0, 1] = -2
+#    mono_bond_block = np.array([[1, -2],\
+#                                [2, 1],\
+#                                [3, 2],\
+#                                [4, 3],\
+#                                [5, 4]], dtype=int)
     bond_mat = np.zeros((Nbm*Nmc, 2), dtype=int)
     for i in range(Nmc):
         bond_mat[Nbm*i : Nbm*(i+1)] = mono_bond_block + Nbm*i
@@ -245,9 +249,11 @@ if __name__ == "__main__":
     print("Box size: %.1f | Water uptake: %.1f" % (L, lmbda))
 
     # ===== setting numbers
+    mono_beads = data["mono-beads"]
+    Nbm = len(mono_beads)
+    Nmc = data["mono-per-chain"]
     Lcl, Lpt, Nsup, Npt = set_electrodes(data, L)
     Nelb = Nsup + Npt
-    Nbm, Nmc = 5, data["mono-per-chain"]
     N = int(rho_DPD * L**2*(L-2*Lcl))   # num. polymer beads, must be cubes
     Nc, Nw = calc_nc_nw(N, Nmc, Nbm, lmbda)
     Nbc = Nbm*Nmc              
@@ -258,7 +264,6 @@ if __name__ == "__main__":
     bead_pop = {"A": 0, "B": 0, "C": 0, "W": Nw, "E": Nsup, "P": Npt}
 
     # ===== beads inter params and bond params
-    mono_beads = "AAABC"
     poly_xyz = grow_polymer(Nbm, Nc, Nmc, L, Lcl, mu=1.0)
     wb_xyz = gen_water_beads(Nw, L, Lcl)
     el_xyz = gen_el_support(Nsup, L, Lcl, Lpt)
@@ -284,7 +289,7 @@ if __name__ == "__main__":
         bond_mat = gen_bonds_one_chain(Nmc, mono_beads, start=0)
         print("FIELD: %i bonds in a chain" % len(bond_mat))
         bead_list = list("AAABC"*Nmc)
-        nafion_mol_str = dlms.mol2str("nafion", Nc, bead_list, bond_mat)
+        nafion_mol_str = dlms.mol2str("nafion", Nc, bead_list, bond_mat, k_ij)
         field_string = "bla\n\n" +\
                        dlms.species2str(bead_types, bead_pop) +\
                        dlms.inter2str(a_ij, method="dpd") + \
