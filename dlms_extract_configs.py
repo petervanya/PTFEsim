@@ -23,10 +23,10 @@ def get_timesteps():
         for line in f:
             line = line.rstrip()
             if "traj" in line:
-                Nevery = int(line.split()[2])
+                Nstart, Nevery = list(map(int, line.split()[1:3]))
             if "steps" in line and not "equilibration" in line:
                 Nsteps = int(line.split()[1])
-    return Nsteps//Nevery + 1
+    return (Nsteps - Nstart)//Nevery + 1
 
 
 args = docopt(__doc__)
