@@ -87,6 +87,7 @@ W E: 1.56
 args = docopt(__doc__)
 L = float(args["--L"])
 T = 1.0
+mono_beads = "AAABC"
 Nmc = 15
 lmbda = int(args["--lmbda"])
 gamma = float(args["--gamma"])
@@ -118,6 +119,7 @@ s += """# * P: platinum
 s += "box-size:          %.0f        # DPD units, 1 = 8.14 AA\n" % L
 s += "temperature:       %.1f       # Units of kB T\n" % T
 s += "mono-per-chain:    %i\n" % Nmc
+s += "mono-beads:        %s\n" % mono_beads
 s += "water-uptake:      %i         # number of H2O/SO3H\n" % lmbda
 s += "gamma:             %.1f       # DPD drag coefficient\n" % gamma
 s += "topology:          (A 3, [B 1], [C 1])15\n\n"
