@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 """Usage:
     rdf_dpd.py (--bead <b> | water) <fnames> [--bins <nbins>] [--binalg <b>]
 
